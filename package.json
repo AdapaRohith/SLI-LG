@@ -1,0 +1,16 @@
+{
+  "name": "spacelink-infra",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Production-ready real estate lead generation platform for SpaceLink Infra",
+  "scripts": {
+    "dev": "concurrently \"npm --prefix server run dev\" \"npm --prefix client run dev\"",
+    "build": "npm --prefix client run build",
+    "start": "npm --prefix server run start"
+  },
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  }
+}
