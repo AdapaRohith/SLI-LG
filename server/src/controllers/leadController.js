@@ -35,11 +35,17 @@ async function createLeadHandler(req, res, next) {
       source: leadInput.source || 'landing-page',
     })
 
-    await sendLeadNotifications(lead)
+    const notifications = await sendLeadNotifications(lead)
+
+    const webhookMessage =
+      typeof notifications.webhook?.data === 'object' && notifications.webhook?.data !== null
+        ? notifications.webhook.data.message
+        : ''
 
     return res.status(201).json({
-      message: 'Thank you! Our agent will contact you shortly.',
+      message: webhookMessage || 'Thank you! Our agent will contact you shortly.',
       lead,
+      notifications,
     })
   } catch (error) {
     return next(error)

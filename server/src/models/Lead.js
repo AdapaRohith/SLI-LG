@@ -21,7 +21,7 @@ const leadSchema = new mongoose.Schema(
     budget: {
       type: String,
       required: true,
-      enum: ['<10L', '10-20L', '20-50L', '50L+'],
+      enum: ['2-3Cr', '3-5Cr', '5Cr+'],
     },
     location: {
       type: String,

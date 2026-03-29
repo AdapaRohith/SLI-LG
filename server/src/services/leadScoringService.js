@@ -6,11 +6,11 @@ let openaiClient = null
 function rulesBasedScore({ budget, preferredLocation }) {
   const hasLocation = Boolean(preferredLocation?.trim())
 
-  if ((budget === '20-50L' || budget === '50L+') && hasLocation) {
+  if ((budget === '3-5Cr' || budget === '5Cr+') && hasLocation) {
     return 'High'
   }
 
-  if (budget === '10-20L') {
+  if (budget === '2-3Cr') {
     return 'Medium'
   }
 
@@ -39,7 +39,7 @@ async function scoreLead(lead) {
         },
         {
           role: 'user',
-          content: `Budget: ${lead.budget}\nPreferred Location: ${lead.preferredLocation || 'Not specified'}\nRubric:\nHigh Intent: Budget > 20L + location specified\nMedium: Budget 10-20L\nLow: Budget < 10L`,
+          content: `Budget: ${lead.budget}\nPreferred Location: ${lead.preferredLocation || 'Not specified'}\nRubric:\nHigh Intent: Budget 3Cr+ with location specified\nMedium: Budget 2-3Cr\nLow: Anything else`,
         },
       ],
     })

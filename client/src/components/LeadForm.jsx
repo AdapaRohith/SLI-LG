@@ -11,10 +11,9 @@ const initialForm = {
 
 const budgetOptions = [
   { value: '', label: 'Select budget' },
-  { value: '<10L', label: 'Below 10 Lakhs' },
-  { value: '10-20L', label: '10 to 20 Lakhs' },
-  { value: '20-50L', label: '20 to 50 Lakhs' },
-  { value: '50L+', label: '50 Lakhs+' },
+  { value: '2-3Cr', label: '2 to 3 Crore' },
+  { value: '3-5Cr', label: '3 to 5 Crore' },
+  { value: '5Cr+', label: '5 Crore+' },
 ]
 
 export function LeadForm() {
@@ -22,6 +21,7 @@ export function LeadForm() {
   const [errors, setErrors] = useState({})
   const [status, setStatus] = useState({ type: 'idle', message: '' })
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [automationData, setAutomationData] = useState(null)
 
   function validate(values) {
     const nextErrors = {}
@@ -68,14 +68,18 @@ export function LeadForm() {
 
     setIsSubmitting(true)
     setStatus({ type: 'idle', message: '' })
+    setAutomationData(null)
 
     try {
       const result = await createLead(form)
+      const webhookData = result.notifications?.webhook?.data ?? null
+
       setForm(initialForm)
       setStatus({
         type: 'success',
         message: result.message ?? 'Thank you! Our agent will contact you shortly.',
       })
+      setAutomationData(webhookData)
 
       const whatsappNumber = import.meta.env.VITE_PUBLIC_WHATSAPP_NUMBER?.replace(/\D/g, '')
       if (whatsappNumber) {
@@ -180,6 +184,15 @@ export function LeadForm() {
               {status.message}
             </div>
           ) : null}
+
+          {automationData ? (
+            <div className="rounded-2xl border border-brand-ink/10 bg-brand-soft/70 px-4 py-3 text-sm text-brand-ink">
+              <p className="font-semibold">Workflow response</p>
+              <pre className="mt-2 overflow-x-auto whitespace-pre-wrap break-words text-xs leading-6 text-brand-muted">
+                {formatAutomationData(automationData)}
+              </pre>
+            </div>
+          ) : null}
         </form>
       </div>
     </div>
@@ -197,4 +210,8 @@ function Field({ error, label, ...props }) {
       {error ? <span className="mt-1 block text-xs text-red-600">{error}</span> : null}
     </label>
   )
+}
+
+function formatAutomationData(data) {
+  return typeof data === 'string' ? data : JSON.stringify(data, null, 2)
 }
