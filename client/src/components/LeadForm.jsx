@@ -11,10 +11,9 @@ const initialForm = {
 
 const budgetOptions = [
   { value: '', label: 'Select budget' },
-  { value: '<10L', label: 'Below 10 Lakhs' },
-  { value: '10-20L', label: '10 to 20 Lakhs' },
-  { value: '20-50L', label: '20 to 50 Lakhs' },
-  { value: '50L+', label: '50 Lakhs+' },
+  { value: '2cr', label: '2 Cr' },
+  { value: '5cr', label: '5 Cr' },
+  { value: '10cr+', label: '10 Cr+' },
 ]
 
 export function LeadForm() {

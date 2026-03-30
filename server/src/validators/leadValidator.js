@@ -9,7 +9,7 @@ const leadSchema = z.object({
     .email('Email must be valid.')
     .optional()
     .or(z.literal('')),
-  budget: z.enum(['<10L', '10-20L', '20-50L', '50L+']),
+  budget: z.enum(['2cr', '5cr', '10cr+']),
   preferredLocation: z.string().trim().max(120, 'Location is too long.').optional().or(z.literal('')),
   source: z.string().trim().max(40).optional(),
 })

@@ -73,9 +73,9 @@ If your PowerShell environment allows `npm` directly, `npm install` and `npm run
 
 Default scoring follows the business rules:
 
-- High: budget `20-50L` or `50L+` and preferred location provided
-- Medium: budget `10-20L`
-- Low: budget `<10L`
+- High: budget `10cr+` and preferred location provided
+- Medium: budget `5cr`
+- Low: budget `2cr`
 
 If `ENABLE_OPENAI_SCORING=true` and an API key is configured, the backend asks OpenAI to apply the same rubric and falls back to the deterministic rules on failure.
 
