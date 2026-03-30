@@ -16,7 +16,7 @@ const budgetOptions = [
   { value: '5Cr+', label: '5 Crore+' },
 ]
 
-export function LeadForm() {
+export function LeadForm({ showFillPrompt = false }) {
   const [form, setForm] = useState(initialForm)
   const [errors, setErrors] = useState({})
   const [status, setStatus] = useState({ type: 'idle', message: '' })
@@ -110,6 +110,12 @@ export function LeadForm() {
           Fill this form to get a callback, brochure, and current plot availability.
         </p>
 
+        {showFillPrompt ? (
+          <div className="mt-4 rounded-2xl border border-brand-accent/35 bg-brand-soft px-4 py-3 text-sm font-semibold text-brand-ink">
+            Please fill the form below to get complete site details.
+          </div>
+        ) : null}
+
         <form className="mt-6 space-y-4" onSubmit={handleSubmit}>
           <Field
             label="Full Name"
@@ -188,7 +194,7 @@ export function LeadForm() {
           {automationData ? (
             <div className="rounded-2xl border border-brand-ink/10 bg-brand-soft/70 px-4 py-3 text-sm text-brand-ink">
               <p className="font-semibold">Workflow response</p>
-              <pre className="mt-2 overflow-x-auto whitespace-pre-wrap break-words text-xs leading-6 text-brand-muted">
+              <pre className="mt-2 overflow-x-auto whitespace-pre-wrap wrap-break-word text-xs leading-6 text-brand-muted">
                 {formatAutomationData(automationData)}
               </pre>
             </div>

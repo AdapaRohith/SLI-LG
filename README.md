@@ -16,6 +16,7 @@ SpaceLink Infra is a SaaS-ready real estate lead generation web application buil
 - Form validation with duplicate lead detection
 - Lead scoring as High, Medium, or Low
 - Admin dashboard with search, filters, and CSV export
+- Admin dashboard access lock using a server-side admin access key
 - REST API for lead capture and retrieval
 - Webhook endpoint for n8n or third-party automation
 - Email notifications and webhook notifications to property owners
@@ -50,6 +51,7 @@ SpaceLink Infra is a SaaS-ready real estate lead generation web application buil
 1. Copy `client/.env.example` to `client/.env`.
 2. Copy `server/.env.example` to `server/.env`.
 3. Update `server/.env` with your MongoDB, SMTP, webhook, and optional OpenAI credentials.
+4. Set `ADMIN_ACCESS_KEY` in `server/.env` to protect the admin dashboard.
 4. From the project root, run:
 
 ```bash
@@ -92,5 +94,6 @@ When a lead is created, the server:
 
 - MongoDB is recommended for production. The app falls back to in-memory storage only when MongoDB is not configured or unavailable.
 - Set `N8N_WEBHOOK_URL` to your n8n webhook, for example `https://your-n8n-host/webhook/lead`.
+- `GET /api/leads` and `GET /api/leads/export` require the `x-admin-key` header and are blocked when `ADMIN_ACCESS_KEY` is not configured.
 - The backend forwards leads created via `POST /api/leads` to n8n with `name`, `phone`, `email`, `budget`, `location`, `score`, `source`, and `createdAt`.
 - `OWNER_WEBHOOK_URL` remains available as a fallback webhook target for WhatsApp delivery via n8n, Twilio, Meta, or another messaging provider.
