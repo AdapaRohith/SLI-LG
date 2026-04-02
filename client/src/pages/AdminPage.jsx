@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { getLeads, getLeadsExportUrl } from '../lib/api'
+import { exportLeadsCsv, getLeads } from '../lib/api'
 
 const scoreStyles = {
   High: 'bg-emerald-100 text-emerald-700',
@@ -9,6 +9,10 @@ const scoreStyles = {
 }
 
 export function AdminPage() {
+  const [adminKey, setAdminKey] = useState(() => window.sessionStorage.getItem('admin_access_key') || '')
+  const [accessInput, setAccessInput] = useState('')
+  const [isUnlocked, setIsUnlocked] = useState(() => Boolean(window.sessionStorage.getItem('admin_access_key')))
+  const [authError, setAuthError] = useState('')
   const [filters, setFilters] = useState({
     score: '',
     search: '',
@@ -18,23 +22,41 @@ export function AdminPage() {
   const [leads, setLeads] = useState([])
   const [meta, setMeta] = useState({ total: 0, storageMode: 'mongo' })
   const [status, setStatus] = useState({ loading: true, error: '' })
+  const [isExporting, setIsExporting] = useState(false)
 
   useEffect(() => {
+    if (!isUnlocked || !adminKey) {
+      setStatus({ loading: false, error: '' })
+      setLeads([])
+      setMeta({ total: 0, storageMode: 'mongo' })
+      return
+    }
+
     let ignore = false
 
     async function loadLeads() {
       setStatus({ loading: true, error: '' })
 
       try {
-        const response = await getLeads(filters)
+        const response = await getLeads(filters, adminKey)
 
         if (!ignore) {
           setLeads(response.leads)
           setMeta(response.meta)
           setStatus({ loading: false, error: '' })
+          setAuthError('')
         }
       } catch (error) {
         if (!ignore) {
+          if (error.status === 401 || error.status === 403) {
+            window.sessionStorage.removeItem('admin_access_key')
+            setAdminKey('')
+            setIsUnlocked(false)
+            setAuthError('Access denied. Enter a valid admin access key.')
+            setStatus({ loading: false, error: '' })
+            return
+          }
+
           setStatus({
             loading: false,
             error: error.message ?? 'Unable to load leads.',
@@ -47,7 +69,7 @@ export function AdminPage() {
     return () => {
       ignore = true
     }
-  }, [filters])
+  }, [adminKey, filters, isUnlocked])
 
   const stats = useMemo(
     () =>
@@ -64,6 +86,92 @@ export function AdminPage() {
   function handleChange(event) {
     const { name, value } = event.target
     setFilters((current) => ({ ...current, [name]: value }))
+  }
+
+  function handleUnlock(event) {
+    event.preventDefault()
+
+    const trimmed = accessInput.trim()
+    if (!trimmed) {
+      setAuthError('Enter your admin access key to continue.')
+      return
+    }
+
+    window.sessionStorage.setItem('admin_access_key', trimmed)
+    setAdminKey(trimmed)
+    setIsUnlocked(true)
+    setAuthError('')
+  }
+
+  function handleLock() {
+    window.sessionStorage.removeItem('admin_access_key')
+    setAdminKey('')
+    setAccessInput('')
+    setIsUnlocked(false)
+    setAuthError('')
+  }
+
+  async function handleExport() {
+    try {
+      setIsExporting(true)
+      const { blob, fileName } = await exportLeadsCsv(filters, adminKey)
+      const downloadUrl = URL.createObjectURL(blob)
+      const anchor = document.createElement('a')
+      anchor.href = downloadUrl
+      anchor.download = fileName
+      document.body.appendChild(anchor)
+      anchor.click()
+      anchor.remove()
+      URL.revokeObjectURL(downloadUrl)
+    } catch (error) {
+      if (error.status === 401 || error.status === 403) {
+        handleLock()
+        setAuthError('Access denied. Enter a valid admin access key.')
+        return
+      }
+
+      setStatus({ loading: false, error: error.message ?? 'Unable to export leads right now.' })
+    } finally {
+      setIsExporting(false)
+    }
+  }
+
+  if (!isUnlocked) {
+    return (
+      <div className="shell py-8 sm:py-10">
+        <div className="glass-card p-6 sm:p-8">
+          <p className="text-kicker">Restricted Access</p>
+          <h1 className="mt-3 font-display text-4xl font-bold text-brand-ink">Admin Dashboard</h1>
+          <p className="mt-3 max-w-2xl text-sm leading-6 text-brand-muted">
+            This page is restricted. Enter the admin access key to view lead details.
+          </p>
+
+          <form className="mt-6 max-w-xl space-y-4" onSubmit={handleUnlock}>
+            <label className="block text-sm font-semibold text-brand-ink">
+              Admin Access Key
+              <input
+                className="mt-2 w-full rounded-2xl border border-brand-ink/10 bg-white px-4 py-3 outline-none focus:border-brand-accent"
+                type="password"
+                value={accessInput}
+                onChange={(event) => setAccessInput(event.target.value)}
+                placeholder="Enter access key"
+              />
+            </label>
+
+            {authError ? <p className="text-sm font-semibold text-red-600">{authError}</p> : null}
+
+            <div className="flex flex-wrap gap-3">
+              <button className="button-primary" type="submit">
+                Unlock Dashboard
+              </button>
+              <Link className="button-secondary" to="/">
+                Back to Landing Page
+              </Link>
+            </div>
+          </form>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -85,9 +193,12 @@ export function AdminPage() {
             <Link className="button-secondary" to="/">
               View Landing Page
             </Link>
-            <a className="button-primary" href={getLeadsExportUrl(filters)}>
-              Export CSV
-            </a>
+            <button className="button-primary" onClick={handleExport} type="button" disabled={isExporting}>
+              {isExporting ? 'Exporting...' : 'Export CSV'}
+            </button>
+            <button className="button-secondary" onClick={handleLock} type="button">
+              Lock Dashboard
+            </button>
           </div>
         </div>
 
@@ -102,7 +213,7 @@ export function AdminPage() {
           />
         </div>
 
-        <div className="mt-8 grid gap-4 rounded-[24px] border border-brand-ink/10 bg-slate-50 p-4 md:grid-cols-2 xl:grid-cols-4">
+        <div className="mt-8 grid gap-4 rounded-3xl border border-brand-ink/10 bg-slate-50 p-4 md:grid-cols-2 xl:grid-cols-4">
           <Field label="Search by Name or Phone">
             <input
               className="mt-2 w-full rounded-2xl border border-brand-ink/10 bg-white px-4 py-3 outline-none focus:border-brand-accent"
@@ -148,7 +259,7 @@ export function AdminPage() {
           </Field>
         </div>
 
-        <div className="mt-8 overflow-hidden rounded-[24px] border border-brand-ink/10 bg-white">
+        <div className="mt-8 overflow-hidden rounded-3xl border border-brand-ink/10 bg-white">
           {status.loading ? (
             <div className="p-8 text-sm text-brand-muted">Loading leads...</div>
           ) : status.error ? (
@@ -210,7 +321,7 @@ function Field({ children, label }) {
 
 function StatCard({ accent = 'text-brand-ink', label, value }) {
   return (
-    <div className="rounded-[24px] border border-brand-ink/10 bg-white p-5">
+    <div className="rounded-3xl border border-brand-ink/10 bg-white p-5">
       <p className="text-sm font-semibold text-brand-muted">{label}</p>
       <p className={`mt-3 font-display text-3xl font-bold ${accent}`}>{value}</p>
     </div>

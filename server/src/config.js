@@ -17,6 +17,7 @@ const config = {
   enableOpenAiScoring: process.env.ENABLE_OPENAI_SCORING === 'true',
   openAiApiKey: process.env.OPENAI_API_KEY || '',
   openAiModel: process.env.OPENAI_MODEL || 'gpt-4.1-mini',
+  adminAccessKey: process.env.ADMIN_ACCESS_KEY || '',
 }
 
 module.exports = { config }
