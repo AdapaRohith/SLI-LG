@@ -162,7 +162,7 @@ export function LandingPage() {
       return savedTheme === 'dark'
     }
 
-    return window.matchMedia('(prefers-color-scheme: dark)').matches
+    return true
   })
 
   useEffect(() => {
