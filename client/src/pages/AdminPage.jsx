@@ -4,6 +4,7 @@ import { exportLeadsCsv, getLeads } from '../lib/api'
 import { CrmPipeline } from '../components/CrmPipeline'
 import { CrmContacts } from '../components/CrmContacts'
 import { CrmActivity } from '../components/CrmActivity'
+import { CrmLimits } from '../components/CrmLimits'
 
 const scoreStyles = {
   High: 'bg-emerald-100 text-emerald-700',
@@ -16,6 +17,7 @@ const TABS = [
   { id: 'pipeline', label: 'Pipeline', icon: '🔀' },
   { id: 'contacts', label: 'Contacts', icon: '👥' },
   { id: 'activity', label: 'Activity', icon: '📋' },
+  { id: 'limits', label: 'Limits', icon: '⚡' },
 ]
 
 export function AdminPage() {
@@ -361,6 +363,12 @@ export function AdminPage() {
         {activeTab === 'activity' && (
           <div className="crm-tab-content">
             <CrmActivity />
+          </div>
+        )}
+
+        {activeTab === 'limits' && (
+          <div className="crm-tab-content">
+            <CrmLimits />
           </div>
         )}
       </div>
