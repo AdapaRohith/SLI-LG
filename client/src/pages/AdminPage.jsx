@@ -1,6 +1,9 @@
-import { useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Link, useLocation } from 'react-router-dom'
 import { exportLeadsCsv, getLeads } from '../lib/api'
+import { CrmPipeline } from '../components/CrmPipeline'
+import { CrmContacts } from '../components/CrmContacts'
+import { CrmActivity } from '../components/CrmActivity'
 
 const scoreStyles = {
   High: 'bg-emerald-100 text-emerald-700',
@@ -8,11 +11,20 @@ const scoreStyles = {
   Low: 'bg-slate-200 text-slate-700',
 }
 
+const TABS = [
+  { id: 'leads', label: 'Leads', icon: '📊' },
+  { id: 'pipeline', label: 'Pipeline', icon: '🔀' },
+  { id: 'contacts', label: 'Contacts', icon: '👥' },
+  { id: 'activity', label: 'Activity', icon: '📋' },
+]
+
 export function AdminPage() {
+  const location = useLocation()
   const [adminKey, setAdminKey] = useState(() => window.sessionStorage.getItem('admin_access_key') || '')
   const [accessInput, setAccessInput] = useState('')
   const [isUnlocked, setIsUnlocked] = useState(() => Boolean(window.sessionStorage.getItem('admin_access_key')))
   const [authError, setAuthError] = useState('')
+  const [activeTab, setActiveTab] = useState('leads')
   const [filters, setFilters] = useState({
     score: '',
     search: '',
@@ -103,13 +115,20 @@ export function AdminPage() {
     setAuthError('')
   }
 
-  function handleLock() {
+  const handleLock = useCallback(() => {
     window.sessionStorage.removeItem('admin_access_key')
     setAdminKey('')
     setAccessInput('')
     setIsUnlocked(false)
     setAuthError('')
-  }
+  }, [])
+
+  // Auto-lock when admin navigates away from this page
+  useEffect(() => {
+    return () => {
+      window.sessionStorage.removeItem('admin_access_key')
+    }
+  }, [location])
 
   async function handleExport() {
     try {
@@ -177,6 +196,7 @@ export function AdminPage() {
   return (
     <div className="shell py-8 sm:py-10">
       <div className="glass-card p-6 sm:p-8">
+        {/* Header */}
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <p className="text-kicker">Lead Operations</p>
@@ -184,8 +204,7 @@ export function AdminPage() {
               Admin Dashboard
             </h1>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-brand-muted">
-              Review captured leads, search by buyer details, filter by intent and date, and
-              export the current list to CSV.
+              Manage your leads pipeline, contacts, and track all activities in one place.
             </p>
           </div>
 
@@ -193,118 +212,157 @@ export function AdminPage() {
             <Link className="button-secondary" to="/">
               View Landing Page
             </Link>
-            <button className="button-primary" onClick={handleExport} type="button" disabled={isExporting}>
-              {isExporting ? 'Exporting...' : 'Export CSV'}
-            </button>
-            <button className="button-secondary" onClick={handleLock} type="button">
-              Lock Dashboard
-            </button>
           </div>
         </div>
 
-        <div className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <StatCard label="Total Leads" value={meta.total} />
-          <StatCard label="High Intent" value={stats.High} accent="text-emerald-600" />
-          <StatCard label="Medium Intent" value={stats.Medium} accent="text-amber-600" />
-          <StatCard
-            label="Storage"
-            value={meta.storageMode === 'mongo' ? 'MongoDB' : 'Memory'}
-            accent="text-sky-600"
-          />
-        </div>
-
-        <div className="mt-8 grid gap-4 rounded-3xl border border-brand-ink/10 bg-slate-50 p-4 md:grid-cols-2 xl:grid-cols-4">
-          <Field label="Search by Name or Phone">
-            <input
-              className="mt-2 w-full rounded-2xl border border-brand-ink/10 bg-white px-4 py-3 outline-none focus:border-brand-accent"
-              name="search"
-              value={filters.search}
-              onChange={handleChange}
-              placeholder="Search"
-            />
-          </Field>
-
-          <Field label="Intent">
-            <select
-              className="mt-2 w-full rounded-2xl border border-brand-ink/10 bg-white px-4 py-3 outline-none focus:border-brand-accent"
-              name="score"
-              value={filters.score}
-              onChange={handleChange}
+        {/* Tab Navigation */}
+        <div className="crm-tabs">
+          {TABS.map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              className={`crm-tab ${activeTab === tab.id ? 'crm-tab-active' : ''}`}
+              onClick={() => setActiveTab(tab.id)}
             >
-              <option value="">All</option>
-              <option value="High">High</option>
-              <option value="Medium">Medium</option>
-              <option value="Low">Low</option>
-            </select>
-          </Field>
-
-          <Field label="From Date">
-            <input
-              className="mt-2 w-full rounded-2xl border border-brand-ink/10 bg-white px-4 py-3 outline-none focus:border-brand-accent"
-              type="date"
-              name="startDate"
-              value={filters.startDate}
-              onChange={handleChange}
-            />
-          </Field>
-
-          <Field label="To Date">
-            <input
-              className="mt-2 w-full rounded-2xl border border-brand-ink/10 bg-white px-4 py-3 outline-none focus:border-brand-accent"
-              type="date"
-              name="endDate"
-              value={filters.endDate}
-              onChange={handleChange}
-            />
-          </Field>
+              <span className="crm-tab-icon">{tab.icon}</span>
+              <span>{tab.label}</span>
+            </button>
+          ))}
         </div>
 
-        <div className="mt-8 overflow-hidden rounded-3xl border border-brand-ink/10 bg-white">
-          {status.loading ? (
-            <div className="p-8 text-sm text-brand-muted">Loading leads...</div>
-          ) : status.error ? (
-            <div className="p-8 text-sm text-red-600">{status.error}</div>
-          ) : leads.length === 0 ? (
-            <div className="p-8 text-sm text-brand-muted">No leads match the current filters.</div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full text-left text-sm">
-                <thead className="bg-slate-50 text-brand-muted">
-                  <tr>
-                    {['Name', 'Phone', 'Budget', 'Location', 'Score', 'Date'].map((column) => (
-                      <th key={column} className="px-5 py-4 font-semibold">
-                        {column}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {leads.map((lead) => (
-                    <tr key={lead.id} className="border-t border-brand-ink/8">
-                      <td className="px-5 py-4">
-                        <p className="font-semibold text-brand-ink">{lead.name}</p>
-                        <p className="text-xs text-brand-muted">{lead.email || 'No email'}</p>
-                      </td>
-                      <td className="px-5 py-4 text-brand-ink">{lead.phone}</td>
-                      <td className="px-5 py-4 text-brand-ink">{lead.budget}</td>
-                      <td className="px-5 py-4 text-brand-ink">{lead.location || 'Not specified'}</td>
-                      <td className="px-5 py-4">
-                        <span
-                          className={`rounded-full px-3 py-1 text-xs font-bold ${scoreStyles[lead.score]}`}
-                        >
-                          {lead.score}
-                        </span>
-                      </td>
-                      <td className="px-5 py-4 text-brand-muted">
-                        {new Date(lead.createdAt).toLocaleString()}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+        {/* Tab Content */}
+        {activeTab === 'leads' && (
+          <div className="crm-tab-content">
+            <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
+              <h2 className="font-display text-xl font-bold text-brand-ink">Captured Leads</h2>
+              <button className="button-primary" onClick={handleExport} type="button" disabled={isExporting}>
+                {isExporting ? 'Exporting...' : 'Export CSV'}
+              </button>
             </div>
-          )}
-        </div>
+
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+              <StatCard label="Total Leads" value={meta.total} />
+              <StatCard label="High Intent" value={stats.High} accent="text-emerald-600" />
+              <StatCard label="Medium Intent" value={stats.Medium} accent="text-amber-600" />
+              <StatCard
+                label="Storage"
+                value={meta.storageMode === 'mongo' ? 'MongoDB' : 'Memory'}
+                accent="text-sky-600"
+              />
+            </div>
+
+            <div className="mt-8 grid gap-4 rounded-3xl border border-brand-ink/10 bg-slate-50 p-4 md:grid-cols-2 xl:grid-cols-4">
+              <Field label="Search by Name or Phone">
+                <input
+                  className="mt-2 w-full rounded-2xl border border-brand-ink/10 bg-white px-4 py-3 outline-none focus:border-brand-accent"
+                  name="search"
+                  value={filters.search}
+                  onChange={handleChange}
+                  placeholder="Search"
+                />
+              </Field>
+
+              <Field label="Intent">
+                <select
+                  className="mt-2 w-full rounded-2xl border border-brand-ink/10 bg-white px-4 py-3 outline-none focus:border-brand-accent"
+                  name="score"
+                  value={filters.score}
+                  onChange={handleChange}
+                >
+                  <option value="">All</option>
+                  <option value="High">High</option>
+                  <option value="Medium">Medium</option>
+                  <option value="Low">Low</option>
+                </select>
+              </Field>
+
+              <Field label="From Date">
+                <input
+                  className="mt-2 w-full rounded-2xl border border-brand-ink/10 bg-white px-4 py-3 outline-none focus:border-brand-accent"
+                  type="date"
+                  name="startDate"
+                  value={filters.startDate}
+                  onChange={handleChange}
+                />
+              </Field>
+
+              <Field label="To Date">
+                <input
+                  className="mt-2 w-full rounded-2xl border border-brand-ink/10 bg-white px-4 py-3 outline-none focus:border-brand-accent"
+                  type="date"
+                  name="endDate"
+                  value={filters.endDate}
+                  onChange={handleChange}
+                />
+              </Field>
+            </div>
+
+            <div className="mt-8 overflow-hidden rounded-3xl border border-brand-ink/10 bg-white">
+              {status.loading ? (
+                <div className="p-8 text-sm text-brand-muted">Loading leads...</div>
+              ) : status.error ? (
+                <div className="p-8 text-sm text-red-600">{status.error}</div>
+              ) : leads.length === 0 ? (
+                <div className="p-8 text-sm text-brand-muted">No leads match the current filters.</div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="min-w-full text-left text-sm">
+                    <thead className="bg-slate-50 text-brand-muted">
+                      <tr>
+                        {['Name', 'Phone', 'Budget', 'Location', 'Score', 'Date'].map((column) => (
+                          <th key={column} className="px-5 py-4 font-semibold">
+                            {column}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {leads.map((lead) => (
+                        <tr key={lead.id} className="border-t border-brand-ink/8">
+                          <td className="px-5 py-4">
+                            <p className="font-semibold text-brand-ink">{lead.name}</p>
+                            <p className="text-xs text-brand-muted">{lead.email || 'No email'}</p>
+                          </td>
+                          <td className="px-5 py-4 text-brand-ink">{lead.phone}</td>
+                          <td className="px-5 py-4 text-brand-ink">{lead.budget}</td>
+                          <td className="px-5 py-4 text-brand-ink">{lead.location || 'Not specified'}</td>
+                          <td className="px-5 py-4">
+                            <span
+                              className={`rounded-full px-3 py-1 text-xs font-bold ${scoreStyles[lead.score]}`}
+                            >
+                              {lead.score}
+                            </span>
+                          </td>
+                          <td className="px-5 py-4 text-brand-muted">
+                            {new Date(lead.createdAt).toLocaleString()}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'pipeline' && (
+          <div className="crm-tab-content">
+            <CrmPipeline leads={leads} />
+          </div>
+        )}
+
+        {activeTab === 'contacts' && (
+          <div className="crm-tab-content">
+            <CrmContacts />
+          </div>
+        )}
+
+        {activeTab === 'activity' && (
+          <div className="crm-tab-content">
+            <CrmActivity />
+          </div>
+        )}
       </div>
     </div>
   )
