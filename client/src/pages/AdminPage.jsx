@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import { exportLeadsCsv, getLeads } from '../lib/api'
+import { exportLeadsCsv, getHealth, getLeads } from '../lib/api'
 import { CrmPipeline } from '../components/CrmPipeline'
 import { CrmContacts } from '../components/CrmContacts'
 import { CrmActivity } from '../components/CrmActivity'
@@ -35,8 +35,56 @@ export function AdminPage() {
   const [meta, setMeta] = useState({ total: 0, storageMode: 'mongo' })
   const [status, setStatus] = useState({ loading: true, error: '' })
   const [isExporting, setIsExporting] = useState(false)
+  const [serverStatus, setServerStatus] = useState({
+    loading: true,
+    adminAccessConfigured: true,
+  })
 
   useEffect(() => {
+    let ignore = false
+
+    async function loadHealth() {
+      try {
+        const response = await getHealth()
+
+        if (!ignore) {
+          setServerStatus({
+            loading: false,
+            adminAccessConfigured: Boolean(response.adminAccessConfigured),
+          })
+        }
+      } catch (_error) {
+        if (!ignore) {
+          setServerStatus({
+            loading: false,
+            adminAccessConfigured: true,
+          })
+        }
+      }
+    }
+
+    loadHealth()
+    return () => {
+      ignore = true
+    }
+  }, [])
+
+  useEffect(() => {
+    if (serverStatus.loading) {
+      return
+    }
+
+    if (!serverStatus.adminAccessConfigured) {
+      window.sessionStorage.removeItem('admin_access_key')
+      setAdminKey('')
+      setIsUnlocked(false)
+      setStatus({ loading: false, error: '' })
+      setLeads([])
+      setMeta({ total: 0, storageMode: 'mongo' })
+      setAuthError('Admin dashboard access key is not configured on the server yet.')
+      return
+    }
+
     if (!isUnlocked || !adminKey) {
       setStatus({ loading: false, error: '' })
       setLeads([])
@@ -69,6 +117,15 @@ export function AdminPage() {
             return
           }
 
+          if (error.status === 503) {
+            window.sessionStorage.removeItem('admin_access_key')
+            setAdminKey('')
+            setIsUnlocked(false)
+            setAuthError(error.message ?? 'Admin dashboard access key is not configured on the server yet.')
+            setStatus({ loading: false, error: '' })
+            return
+          }
+
           setStatus({
             loading: false,
             error: error.message ?? 'Unable to load leads.',
@@ -81,7 +138,7 @@ export function AdminPage() {
     return () => {
       ignore = true
     }
-  }, [adminKey, filters, isUnlocked])
+  }, [adminKey, filters, isUnlocked, serverStatus])
 
   const stats = useMemo(
     () =>
@@ -102,6 +159,11 @@ export function AdminPage() {
 
   function handleUnlock(event) {
     event.preventDefault()
+
+    if (!serverStatus.adminAccessConfigured) {
+      setAuthError('Admin dashboard access key is not configured on the server yet.')
+      return
+    }
 
     const trimmed = accessInput.trim()
     if (!trimmed) {
@@ -149,6 +211,12 @@ export function AdminPage() {
         return
       }
 
+      if (error.status === 503) {
+        handleLock()
+        setAuthError(error.message ?? 'Admin dashboard access key is not configured on the server yet.')
+        return
+      }
+
       setStatus({ loading: false, error: error.message ?? 'Unable to export leads right now.' })
     } finally {
       setIsExporting(false)
@@ -164,6 +232,12 @@ export function AdminPage() {
           <p className="mt-3 max-w-2xl text-sm leading-6 text-brand-muted">
             This page is restricted. Enter the admin access key to view lead details.
           </p>
+
+          {!serverStatus.loading && !serverStatus.adminAccessConfigured ? (
+            <p className="mt-4 rounded-2xl bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-700">
+              The server has not been configured with `ADMIN_ACCESS_KEY` yet, so the dashboard is temporarily unavailable.
+            </p>
+          ) : null}
 
           <form className="mt-6 max-w-xl space-y-4" onSubmit={handleUnlock}>
             <label className="block text-sm font-semibold text-brand-ink">

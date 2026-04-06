@@ -33,6 +33,7 @@ app.get('/api/health', (_req, res) => {
   res.json({
     ok: true,
     storageMode: getStorageMode(),
+    adminAccessConfigured: Boolean(config.adminAccessKey),
   })
 })
 

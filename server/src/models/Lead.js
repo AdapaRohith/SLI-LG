@@ -1,4 +1,5 @@
 const mongoose = require('mongoose')
+const { allowedBudgets } = require('../lib/leadBudgets')
 
 const leadSchema = new mongoose.Schema(
   {
@@ -21,11 +22,7 @@ const leadSchema = new mongoose.Schema(
     budget: {
       type: String,
       required: true,
-<<<<<<< HEAD
-      enum: ['2cr', '5cr', '10cr+'],
-=======
-      enum: ['2-3Cr', '3-5Cr', '5Cr+'],
->>>>>>> 91f761f128e5ce96cefb3b2187c0abe90cd7fa46
+      enum: allowedBudgets,
     },
     location: {
       type: String,

@@ -1,28 +1,11 @@
 const OpenAI = require('openai')
 const { config } = require('../config')
+const { buildLeadScoringRubric, getLeadScoreFromBudget } = require('../lib/leadBudgets')
 
 let openaiClient = null
 
 function rulesBasedScore({ budget, preferredLocation }) {
-  const hasLocation = Boolean(preferredLocation?.trim())
-
-<<<<<<< HEAD
-  if (budget === '10cr+' && hasLocation) {
-    return 'High'
-  }
-
-  if (budget === '5cr') {
-=======
-  if ((budget === '3-5Cr' || budget === '5Cr+') && hasLocation) {
-    return 'High'
-  }
-
-  if (budget === '2-3Cr') {
->>>>>>> 91f761f128e5ce96cefb3b2187c0abe90cd7fa46
-    return 'Medium'
-  }
-
-  return 'Low'
+  return getLeadScoreFromBudget({ budget, preferredLocation })
 }
 
 async function scoreLead(lead) {
@@ -42,16 +25,11 @@ async function scoreLead(lead) {
       input: [
         {
           role: 'system',
-          content:
-            'Classify this real estate lead as High, Medium, or Low using the provided rubric only. Return one word.',
+          content: buildLeadScoringRubric(),
         },
         {
           role: 'user',
-<<<<<<< HEAD
-          content: `Budget: ${lead.budget}\nPreferred Location: ${lead.preferredLocation || 'Not specified'}\nRubric:\nHigh Intent: Budget 10cr+ + location specified\nMedium: Budget 5cr\nLow: Budget 2cr`,
-=======
-          content: `Budget: ${lead.budget}\nPreferred Location: ${lead.preferredLocation || 'Not specified'}\nRubric:\nHigh Intent: Budget 3Cr+ with location specified\nMedium: Budget 2-3Cr\nLow: Anything else`,
->>>>>>> 91f761f128e5ce96cefb3b2187c0abe90cd7fa46
+          content: `Budget: ${lead.budget}\nPreferred Location: ${lead.preferredLocation || 'Not specified'}`,
         },
       ],
     })

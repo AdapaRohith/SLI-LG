@@ -39,6 +39,10 @@ export async function createLead(payload) {
   })
 }
 
+export async function getHealth() {
+  return request('/api/health')
+}
+
 export async function getLeads(params = {}, adminKey = '') {
   const query = new URLSearchParams()
 
