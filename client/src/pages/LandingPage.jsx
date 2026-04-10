@@ -2,12 +2,12 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { LeadForm } from '../components/LeadForm'
 
-const benefits = ['Clear Title', 'Ready for Construction', 'Near IT hubs']
+const benefits = ['DTCP Approved', 'Build Ready', 'IT Corridors']
 
 const highlights = [
-  { value: 'DTCP', label: 'Approved layouts with documentation clarity' },
-  { value: '12%', label: 'Average appreciation focus across growth corridors' },
-  { value: '24/7', label: 'Assisted booking and call-back support' },
+  { value: 'DTCP', label: 'Approved layouts' },
+  { value: '12%', label: 'Growth focus' },
+  { value: '24/7', label: 'Call and WhatsApp' },
 ]
 
 const navigationItems = [
@@ -21,44 +21,37 @@ const navigationItems = [
 const featureCards = [
   {
     title: 'Verified plot intelligence',
-    description:
-      'Every enquiry is supported with legal clarity, corridor context, and straightforward next steps for site visits.',
+    description: 'Clear documents and location context.',
   },
   {
     title: 'Fast buyer response',
-    description:
-      'Callback workflows, WhatsApp routing, and lead prioritisation help serious buyers move faster from enquiry to visit.',
+    description: 'Quick updates for serious buyers.',
   },
   {
-    title: 'Owner-ready automation',
-    description:
-      'High-intent leads can be pushed into email or webhook handoff flows without slowing the sales conversation.',
+    title: 'Live dashboard access',
+    description: 'View synced lead and chat data.',
   },
   {
     title: 'Guided shortlist planning',
-    description:
-      'Buyers compare frontage, access roads, and future-use fit before committing time to a physical site tour.',
+    description: 'Compare options before a site visit.',
   },
 ]
 
 const whySpaceReasons = [
   {
     title: 'Legal confidence first',
-    stat: '100% document-first walkthrough',
-    detail:
-      'Every shortlisted project is explained with ownership clarity, approvals context, and practical buyer checkpoints before a site visit is planned.',
+    stat: 'Document-first review',
+    detail: 'Check approvals before you visit.',
   },
   {
     title: 'Faster buyer coordination',
-    stat: '90-minute qualified callback window',
-    detail:
-      'High-intent prospects are routed quickly so buyers get pricing, availability, and visit support without waiting through fragmented broker chains.',
+    stat: '90-minute response window',
+    detail: 'Get pricing and visit help faster.',
   },
   {
     title: 'Growth corridor focus',
-    stat: '3 high-conviction micro-markets',
-    detail:
-      'Instead of generic listings, inventory is filtered around Hyderabad corridors where road expansion, demand, and construction activity align strongly.',
+    stat: '3 focus markets',
+    detail: 'Projects centered on high-growth corridors.',
   },
 ]
 
@@ -71,8 +64,7 @@ const projects = [
     image:
       'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1400&q=80',
     imageAlt: 'Aerial view of a premium plotted residential community with wide internal roads',
-    description:
-      'A plotted community shaped for villa buyers looking for wider internal roads, cleaner documentation, and ORR access.',
+    description: 'Villa-focused plotted community with ORR access.',
     tags: ['Villa-facing plots', '30 ft. and 40 ft. roads', 'High-growth micro market'],
   },
   {
@@ -83,8 +75,7 @@ const projects = [
     image:
       'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=1400&q=80',
     imageAlt: 'Modern township planning zone near an emerging logistics and airport corridor',
-    description:
-      'A value-focused project positioned for buyers who want early entry pricing near logistics and airport-linked expansion.',
+    description: 'Value-focused plots near growth corridors.',
     tags: ['Entry pricing', 'Future appreciation', 'Investor-friendly inventory'],
   },
   {
@@ -95,42 +86,38 @@ const projects = [
     image:
       'https://images.unsplash.com/photo-1460317442991-0ec209397118?auto=format&fit=crop&w=1400&q=80',
     imageAlt: 'Scenic plotted development zone near destination corridor growth infrastructure',
-    description:
-      'A destination-led plotted offering designed for long-hold buyers prioritising emerging infrastructure and destination traffic.',
+    description: 'Long-hold option in an emerging corridor.',
     tags: ['Destination corridor', 'Corner plots', 'Weekend-home potential'],
   },
 ]
 
 const process = [
-  'Submit your interest with budget and preferred location.',
-  'Our team shares matching projects, pricing, and layout highlights within minutes.',
-  'High-intent buyers are scheduled for a guided site visit with documentation support.',
+  'Review projects.',
+  'Contact the team.',
+  'Open the dashboard.',
 ]
 
 const metrics = [
-  ['18+', 'Active plotted opportunities reviewed every month'],
-  ['4.8/5', 'Average buyer satisfaction across assisted bookings'],
-  ['90 min', 'Typical response time for qualified lead callbacks'],
+  ['18+', 'Projects tracked'],
+  ['4.8/5', 'Buyer rating'],
+  ['90 min', 'Response time'],
 ]
 
 const testimonials = [
   {
     name: 'Praveen R.',
     role: 'IT professional, Gachibowli',
-    quote:
-      'The shortlist was sharper than what local brokers gave me. I got layout details, road widths, and price logic before visiting.',
+    quote: 'Clear shortlist and faster visits.',
   },
   {
     name: 'Sowmya and Kiran',
     role: 'First-time plot buyers',
-    quote:
-      'The team explained the documentation clearly and saved us two wasted site visits. The process felt structured, not pushy.',
+    quote: 'Clear guidance without pressure.',
   },
   {
     name: 'Ramanathan V.',
     role: 'Investor, Bengaluru',
-    quote:
-      'I needed remote support and fast updates. They handled callbacks, WhatsApp follow-ups, and owner coordination without gaps.',
+    quote: 'Fast updates and smooth coordination.',
   },
 ]
 
@@ -184,13 +171,6 @@ export function LandingPage() {
     if (leadFormSection) {
       leadFormSection.scrollIntoView({ behavior: 'smooth', block: 'start' })
     }
-
-    window.setTimeout(() => {
-      const firstField = document.querySelector('#lead-form input[name="name"]')
-      if (firstField instanceof HTMLInputElement) {
-        firstField.focus()
-      }
-    }, 450)
   }
 
   return (
@@ -200,9 +180,7 @@ export function LandingPage() {
           <div className="flex items-center justify-between gap-4">
             <div>
               <p className="font-display text-xl font-bold text-brand-ink">SpaceLink Infra</p>
-              <p className="text-sm text-brand-muted">
-              Trusted plotted development opportunities in Hyderabad
-              </p>
+              <p className="text-sm text-brand-muted">Open plots in Hyderabad</p>
             </div>
 
             <button
@@ -240,7 +218,7 @@ export function LandingPage() {
                 {isDarkMode ? 'Light Mode' : 'Dark Mode'}
               </button>
               <Link className="button-secondary" to="/admin">
-                Admin Dashboard
+                Lead Dashboard
               </Link>
               {clickToCall ? (
                 <a className="button-primary" href={`tel:${clickToCall}`}>
@@ -248,7 +226,7 @@ export function LandingPage() {
                 </a>
               ) : (
                 <a className="button-primary" href="#lead-form">
-                  Get Details Now
+                  Contact Options
                 </a>
               )}
             </div>
@@ -278,7 +256,7 @@ export function LandingPage() {
                 {isDarkMode ? 'Light Mode' : 'Dark Mode'}
               </button>
               <Link className="button-secondary w-full" onClick={() => setIsNavOpen(false)} to="/admin">
-                Admin Dashboard
+                Lead Dashboard
               </Link>
               {clickToCall ? (
                 <a className="button-primary w-full" href={`tel:${clickToCall}`}>
@@ -286,7 +264,7 @@ export function LandingPage() {
                 </a>
               ) : (
                 <a className="button-primary w-full" href="#lead-form" onClick={() => setIsNavOpen(false)}>
-                  Get Details Now
+                  Contact Options
                 </a>
               )}
             </div>
@@ -303,28 +281,26 @@ export function LandingPage() {
             <div className="relative grid gap-10 lg:grid-cols-[1.2fr_0.8fr] lg:items-center">
               <div className="animate-rise">
                 <div className="inline-flex rounded-full border border-brand-accent/20 bg-white/80 px-4 py-2 text-xs font-bold uppercase tracking-[0.22em] text-brand-accent">
-                  Hyderabad plotted opportunities
+                  Hyderabad plots
                 </div>
-                <p className="mt-5 text-kicker">SpaceLink Infra Signature Plots</p>
+                <p className="mt-5 text-kicker">SpaceLink Infra</p>
                 <h1 className="mt-4 max-w-3xl font-display text-4xl font-bold tracking-tight text-brand-ink sm:text-5xl lg:text-6xl">
-                  Premium open plots with faster buyer guidance and cleaner decision-making.
+                  Premium open plots.
                 </h1>
                 <p className="mt-5 max-w-2xl text-lg leading-8 text-brand-muted">
-                  SpaceLink Infra brings you DTCP-approved plotted developments in high-growth
-                  Hyderabad corridors, curated for secure ownership, construction readiness, and
-                  strong long-term appreciation.
+                  DTCP-approved plotted developments in key Hyderabad corridors.
                 </p>
 
                 <div className="mt-8 flex flex-wrap gap-3">
                   <a className="button-primary" href="#lead-form">
-                    Get Details Now
+                    Contact Options
                   </a>
                   <a className="button-secondary" href="#projects">
-                    Explore Projects
+                    View Projects
                   </a>
                   {clickToCall ? (
                     <a className="button-secondary" href={`tel:${clickToCall}`}>
-                      Talk to an Advisor
+                      Call Now
                     </a>
                   ) : null}
                 </div>
@@ -365,11 +341,7 @@ export function LandingPage() {
           <div className="grid gap-6 lg:grid-cols-[0.8fr_1.2fr]">
             <div className="glass-card p-8">
               <p className="text-kicker">Why SpaceLink Infra</p>
-              <h2 className="section-title mt-3">Plotted investments presented with clarity and trust.</h2>
-              <p className="mt-4 text-base leading-7 text-brand-muted">
-                We focus on serious buyers who value legal clarity, future-ready infrastructure,
-                and plotted communities positioned near Hyderabad&apos;s fastest-growing zones.
-              </p>
+              <h2 className="section-title mt-3">Clear, fast, reliable.</h2>
 
               <div className="mt-6 grid gap-3">
                 {whySpaceReasons.map((reason, index) => (
@@ -437,13 +409,7 @@ export function LandingPage() {
             <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
               <div className="max-w-2xl">
                 <p className="text-kicker">Our Projects</p>
-                <h2 className="section-title mt-3">
-                  Separate project visibility for buyers comparing location, size, and intent.
-                </h2>
-                <p className="mt-4 text-base leading-7 text-brand-muted">
-                  Explore curated project buckets designed for villa buyers, investors, and
-                  long-term land holders across Hyderabad growth corridors.
-                </p>
+                <h2 className="section-title mt-3">Current projects.</h2>
               </div>
 
               <div className="flex flex-wrap gap-3">
@@ -521,10 +487,10 @@ export function LandingPage() {
               <div className="flex flex-wrap items-center justify-between gap-4">
                 <div>
                   <p className="text-kicker">How It Works</p>
-                  <h2 className="section-title mt-3">A tighter path from enquiry to site visit.</h2>
+                  <h2 className="section-title mt-3">How it works.</h2>
                 </div>
                 <span className="rounded-full bg-red-50 px-4 py-2 text-sm font-bold text-red-600">
-                  Limited inventory this month
+                  Limited inventory
                 </span>
               </div>
 
@@ -543,15 +509,11 @@ export function LandingPage() {
 
             <div className="metric-stack rounded-4xl p-8 text-white">
               <p className="text-sm font-semibold uppercase tracking-[0.24em] text-orange-100">
-                Response metrics
+                Metrics
               </p>
               <h2 className="mt-3 font-display text-3xl font-bold sm:text-4xl">
-                The UI now shows stronger buying confidence signals.
+                Quick view.
               </h2>
-              <p className="mt-4 text-sm leading-7 text-white/75">
-                These sections help prospects understand responsiveness, project readiness, and the
-                level of assisted support before they submit their details.
-              </p>
 
               <div className="mt-8 grid gap-4">
                 {metrics.map(([value, label]) => (
@@ -574,15 +536,10 @@ export function LandingPage() {
             <div className="relative">
               <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
                 <div className="max-w-2xl">
-                  <p className="text-kicker">Big Building Plot Showcase</p>
+                  <p className="text-kicker">Showcase</p>
                   <h2 className="section-title mt-3">
-                    Demo layouts for buyers comparing larger parcels and premium building potential.
+                    Larger plot showcase.
                   </h2>
-                  <p className="mt-4 text-base leading-7 text-brand-muted">
-                    This section gives prospects a cleaner way to explore large-format plots with
-                    clearer dimensions, frontage cues, and project-fit notes before they request a
-                    callback.
-                  </p>
                 </div>
 
                 <div className="flex flex-wrap gap-3">
@@ -598,7 +555,7 @@ export function LandingPage() {
               <div className="mt-8">
                 <article className="showcase-hero group relative overflow-hidden rounded-[28px] p-6 sm:p-8">
                   <div className="absolute right-6 top-6 rounded-full border border-white/25 bg-white/10 px-4 py-2 text-xs font-bold uppercase tracking-[0.22em] text-white/90">
-                    Premium plot demo
+                    Plot demo
                   </div>
 
                   <div className="relative grid gap-6">
@@ -638,22 +595,18 @@ export function LandingPage() {
                         Signature parcel
                       </p>
                       <h3 className="mt-4 font-display text-3xl font-bold text-white sm:text-4xl">
-                        Tower-ready land blocks presented like a premium inventory deck.
+                        Premium large-format plots.
                       </h3>
-                      <p className="mt-4 text-sm leading-7 text-white/75 sm:text-base">
-                        Use this area to demonstrate how a large plot can support residential towers,
-                        luxury villas, or mixed-use frontage with cleaner buyer-facing storytelling.
-                      </p>
 
                       <a className="button-primary mt-6" href="#lead-form" onClick={handleVisitSite}>
-                        Visit Site
+                        Contact Team
                       </a>
 
                       <div className="relative mt-8 grid gap-4 sm:grid-cols-3">
                         {[
                           ['1,200 sq. yd.', 'Prime buildable area'],
-                          ['30 m roads', 'Cleaner entry and turning radius'],
-                          ['3 formats', 'Residential, villa, mixed-use'],
+                          ['30 m roads', 'Easy access'],
+                          ['3 formats', 'Residential or mixed-use'],
                         ].map(([value, label]) => (
                           <div
                             key={label}
@@ -676,11 +629,7 @@ export function LandingPage() {
           <div className="glass-card p-8 sm:p-10">
             <div className="max-w-2xl">
               <p className="text-kicker">Testimonials</p>
-              <h2 className="section-title mt-3">Buyer feedback that reduces hesitation.</h2>
-              <p className="mt-4 text-base leading-7 text-brand-muted">
-                Social proof matters in plotted sales. These testimonials give new prospects a
-                better sense of trust, speed, and how the advisory flow works in practice.
-              </p>
+              <h2 className="section-title mt-3">What buyers say.</h2>
             </div>
 
             <div className="mt-8 grid gap-5 lg:grid-cols-3">
@@ -703,21 +652,16 @@ export function LandingPage() {
             <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
               <div>
                 <p className="text-sm font-semibold uppercase tracking-[0.24em] text-orange-100">
-                  Next step
+                  Contact
                 </p>
                 <h2 className="mt-3 font-display text-3xl font-bold text-white sm:text-4xl">
-                  Ready for project details, pricing, and a faster callback?
+                  Ready to talk?
                 </h2>
-                <p className="mt-4 max-w-2xl text-sm leading-7 text-white/75 sm:text-base">
-                  Use the lead form to request brochures, current inventory, and site-visit support.
-                  The new navigation and project sections are designed to help buyers arrive at that
-                  decision with less friction.
-                </p>
               </div>
 
               <div className="flex flex-wrap gap-3 lg:justify-end">
                 <a className="button-primary" href="#lead-form">
-                  Submit Requirement
+                  Contact Options
                 </a>
                 {clickToCall ? (
                   <a className="button-secondary border-white/20 bg-white/10 text-white hover:text-white" href={`tel:${clickToCall}`}>

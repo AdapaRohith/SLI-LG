@@ -1,17 +1,23 @@
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, '') ?? ''
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? 'https://slilg-api.avlokai.com').replace(/\/$/, '')
 
 async function request(path, options = {}) {
+  const headers = {
+    Accept: 'application/json',
+    ...(options.headers ?? {}),
+  }
+
+  if (options.body && !headers['Content-Type']) {
+    headers['Content-Type'] = 'application/json'
+  }
+
   const response = await fetch(`${API_BASE_URL}${path}`, {
-    headers: {
-      'Content-Type': 'application/json',
-      ...(options.headers ?? {}),
-    },
     ...options,
+    headers,
   })
 
   if (!response.ok) {
     const payload = await response.json().catch(() => ({}))
-    const error = new Error(payload.message ?? 'Something went wrong. Please try again.')
+    const error = new Error(payload.message ?? 'Unable to reach the lead API right now.')
     error.status = response.status
     throw error
   }
@@ -24,65 +30,56 @@ async function request(path, options = {}) {
   return response
 }
 
-function createAdminHeaders(adminKey) {
-  return adminKey
-    ? {
-        'x-admin-key': adminKey,
-      }
-    : {}
+function normalizeCollection(payload) {
+  if (Array.isArray(payload)) {
+    return payload
+  }
+
+  if (Array.isArray(payload?.data)) {
+    return payload.data
+  }
+
+  if (Array.isArray(payload?.items)) {
+    return payload.items
+  }
+
+  return []
 }
 
-export async function createLead(payload) {
-  return request('/api/leads', {
-    method: 'POST',
-    body: JSON.stringify(payload),
-  })
+export function getApiBaseUrl() {
+  return API_BASE_URL
 }
 
 export async function getHealth() {
-  return request('/api/health')
+  return request('/')
 }
 
-export async function getLeads(params = {}, adminKey = '') {
-  const query = new URLSearchParams()
-
-  Object.entries(params).forEach(([key, value]) => {
-    if (value) {
-      query.set(key, value)
-    }
-  })
-
-  return request(`/api/leads?${query.toString()}`, {
-    headers: createAdminHeaders(adminKey),
-  })
+export async function getLeads() {
+  const payload = await request('/leads')
+  return normalizeCollection(payload)
 }
 
-export async function exportLeadsCsv(params = {}, adminKey = '') {
-  const query = new URLSearchParams()
+export async function searchLeads(query) {
+  const trimmedQuery = query.trim()
 
-  Object.entries(params).forEach(([key, value]) => {
-    if (value) {
-      query.set(key, value)
-    }
-  })
-
-  const queryString = query.toString()
-  const response = await fetch(`${API_BASE_URL}/api/leads/export${queryString ? `?${queryString}` : ''}`, {
-    headers: {
-      ...createAdminHeaders(adminKey),
-    },
-  })
-
-  if (!response.ok) {
-    const payload = await response.json().catch(() => ({}))
-    const error = new Error(payload.message ?? 'Unable to export leads right now.')
-    error.status = response.status
-    throw error
+  if (!trimmedQuery) {
+    return getLeads()
   }
 
-  const blob = await response.blob()
-  return {
-    blob,
-    fileName: 'leads.csv',
-  }
+  const payload = await request(`/search?q=${encodeURIComponent(trimmedQuery)}`)
+  return normalizeCollection(payload)
+}
+
+export async function getLeadDetail(leadId) {
+  return request(`/leads/${leadId}`)
+}
+
+export async function getLeadInsights(leadId) {
+  const payload = await request(`/insights/${leadId}`)
+  return payload ?? {}
+}
+
+export async function getLeadSignals(leadId) {
+  const payload = await request(`/signals/${leadId}`)
+  return normalizeCollection(payload)
 }
