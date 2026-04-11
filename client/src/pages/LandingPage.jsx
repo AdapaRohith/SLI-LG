@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { LeadForm } from '../components/LeadForm'
 
@@ -142,21 +142,6 @@ export function LandingPage() {
   const [isNavOpen, setIsNavOpen] = useState(false)
   const [activeNavLabel, setActiveNavLabel] = useState('Projects')
   const [activeWhyReason, setActiveWhyReason] = useState(0)
-  const [isDarkMode, setIsDarkMode] = useState(() => {
-    const savedTheme = window.localStorage.getItem('spacelink-theme')
-
-    if (savedTheme) {
-      return savedTheme === 'dark'
-    }
-
-    return true
-  })
-
-  useEffect(() => {
-    const activeTheme = isDarkMode ? 'dark' : 'light'
-    document.documentElement.setAttribute('data-theme', activeTheme)
-    window.localStorage.setItem('spacelink-theme', activeTheme)
-  }, [isDarkMode])
 
   function handleNavItemClick(label) {
     setActiveNavLabel(label)
@@ -209,14 +194,6 @@ export function LandingPage() {
             </nav>
 
             <div className="flex flex-wrap items-center gap-3">
-              <button
-                aria-label={isDarkMode ? 'Switch to light mode' : 'Switch to dark mode'}
-                className="button-secondary px-4 py-2"
-                onClick={() => setIsDarkMode((current) => !current)}
-                type="button"
-              >
-                {isDarkMode ? 'Light Mode' : 'Dark Mode'}
-              </button>
               <Link className="button-secondary" to="/admin">
                 Lead Dashboard
               </Link>
@@ -247,14 +224,6 @@ export function LandingPage() {
             </nav>
 
             <div className="mt-3 grid gap-2">
-              <button
-                aria-label={isDarkMode ? 'Switch to light mode' : 'Switch to dark mode'}
-                className="button-secondary w-full"
-                onClick={() => setIsDarkMode((current) => !current)}
-                type="button"
-              >
-                {isDarkMode ? 'Light Mode' : 'Dark Mode'}
-              </button>
               <Link className="button-secondary w-full" onClick={() => setIsNavOpen(false)} to="/admin">
                 Lead Dashboard
               </Link>
