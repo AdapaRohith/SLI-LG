@@ -39,6 +39,10 @@ export function AdminPage() {
   const [showConversation, setShowConversation] = useState(false)
 
   useEffect(() => {
+    clearAdminAuthentication()
+  }, [])
+
+  useEffect(() => {
     let ignore = false
 
     async function loadHealth() {
