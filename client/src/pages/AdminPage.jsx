@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import {
   getHealth,
@@ -27,10 +27,13 @@ const EMPTY_DETAIL_STATE = {
 
 export function AdminPage() {
   const navigate = useNavigate()
+  const leadItemRefs = useRef(new Map())
+  const conversationSectionRef = useRef(null)
   const [health, setHealth] = useState({ loading: true, error: '', status: '' })
   const [searchQuery, setSearchQuery] = useState('')
   const [leadsState, setLeadsState] = useState({ loading: true, error: '', items: [] })
   const [activeLeadId, setActiveLeadId] = useState('')
+  const [activeFilter, setActiveFilter] = useState('all')
   const [detailState, setDetailState] = useState(EMPTY_DETAIL_STATE)
   const [refreshKey, setRefreshKey] = useState(0)
   const [showConversation, setShowConversation] = useState(false)
@@ -154,6 +157,23 @@ export function AdminPage() {
     setShowConversation(false)
   }, [activeLeadId])
 
+  useEffect(() => {
+    if (!activeLeadId) {
+      return
+    }
+
+    const activeLeadNode = leadItemRefs.current.get(activeLeadId)
+    activeLeadNode?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+  }, [activeLeadId, leadsState.items.length])
+
+  useEffect(() => {
+    if (!showConversation) {
+      return
+    }
+
+    conversationSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+  }, [detailState.messages.length, showConversation])
+
   const stats = useMemo(() => {
     return leadsState.items.reduce(
       (summary, lead) => {
@@ -177,9 +197,27 @@ export function AdminPage() {
     )
   }, [leadsState.items])
 
+  const filteredLeads = useMemo(() => {
+    if (activeFilter === 'all') {
+      return leadsState.items
+    }
+
+    return leadsState.items.filter((lead) => getLeadTemperature(lead.score) === activeFilter)
+  }, [activeFilter, leadsState.items])
+
+  useEffect(() => {
+    setActiveLeadId((current) => {
+      if (filteredLeads.length === 0) {
+        return ''
+      }
+
+      return filteredLeads.some((lead) => lead.id === current) ? current : filteredLeads[0].id
+    })
+  }, [filteredLeads])
+
   const detailViewState = activeLeadId ? detailState : EMPTY_DETAIL_STATE
   const averageScore = stats.total > 0 ? (stats.scoreTotal / stats.total).toFixed(1) : '0.0'
-  const selectedLead = detailViewState.lead ?? leadsState.items.find((lead) => lead.id === activeLeadId) ?? null
+  const selectedLead = detailViewState.lead ?? filteredLeads.find((lead) => lead.id === activeLeadId) ?? null
   const selectedLeadTemperature = selectedLead ? getLeadTemperature(selectedLead.score) : 'cold'
 
   function handleLogout() {
@@ -188,27 +226,35 @@ export function AdminPage() {
   }
 
   return (
-    <div className="shell py-8 sm:py-10">
+    <div className="crm-admin-page shell py-8 sm:py-10">
       <div className="crm-admin-shell p-4 sm:p-6 lg:p-8">
         <AdminHero
+          activeFilter={activeFilter}
           averageScore={averageScore}
           health={health}
           onLogout={handleLogout}
           onRefresh={() => setRefreshKey((value) => value + 1)}
+          onSelectFilter={setActiveFilter}
           stats={stats}
         />
 
-        <div className="mt-8 grid gap-6 xl:grid-cols-[360px_minmax(0,1fr)]">
+        <div className="crm-dashboard-grid mt-8">
           <LeadSidebar
             activeLeadId={activeLeadId}
+            activeFilter={activeFilter}
+            filteredCount={filteredLeads.length}
+            leadItemRefs={leadItemRefs}
             leadsState={leadsState}
             searchQuery={searchQuery}
+            setActiveFilter={setActiveFilter}
             setActiveLeadId={setActiveLeadId}
             setSearchQuery={setSearchQuery}
             stats={stats}
+            visibleLeads={filteredLeads}
           />
 
           <LeadWorkspace
+            conversationSectionRef={conversationSectionRef}
             detailViewState={detailViewState}
             selectedLead={selectedLead}
             selectedLeadTemperature={selectedLeadTemperature}
@@ -221,10 +267,10 @@ export function AdminPage() {
   )
 }
 
-function AdminHero({ averageScore, health, onLogout, onRefresh, stats }) {
+function AdminHero({ activeFilter, averageScore, health, onLogout, onRefresh, onSelectFilter, stats }) {
   return (
-    <section className="crm-admin-hero">
-      <div className="relative overflow-hidden rounded-[32px] border border-brand-ink/8 bg-white/88 p-6 shadow-[0_22px_60px_rgba(15,23,42,0.08)] sm:p-8">
+    <section className="crm-admin-hero crm-fade-up">
+      <div className="crm-admin-hero-card relative overflow-hidden rounded-[32px] border border-brand-ink/8 bg-white/88 p-6 shadow-[0_22px_60px_rgba(15,23,42,0.08)] sm:p-8">
         <div className="crm-admin-orb crm-admin-orb-primary" />
         <div className="crm-admin-orb crm-admin-orb-secondary" />
 
@@ -253,10 +299,37 @@ function AdminHero({ averageScore, health, onLogout, onRefresh, stats }) {
           </div>
 
           <div className="grid w-full gap-4 sm:grid-cols-2 xl:w-[520px] xl:grid-cols-3">
-            <StatCard label="Total Leads" value={stats.total} description="Tracked in workspace" />
-            <StatCard label="Hot" value={stats.hot} accent="text-red-600" description="Ready for fast follow-up" />
-            <StatCard label="Warm" value={stats.warm} accent="text-amber-600" description="Qualified and active" />
-            <StatCard label="Cold" value={stats.cold} accent="text-slate-700" description="Needs more nurturing" />
+            <StatCard
+              label="Total Leads"
+              value={stats.total}
+              description="Tracked in workspace"
+              isActive={activeFilter === 'all'}
+              onClick={() => onSelectFilter('all')}
+            />
+            <StatCard
+              label="Hot"
+              value={stats.hot}
+              accent="text-red-600"
+              description="Ready for fast follow-up"
+              isActive={activeFilter === 'hot'}
+              onClick={() => onSelectFilter('hot')}
+            />
+            <StatCard
+              label="Warm"
+              value={stats.warm}
+              accent="text-amber-600"
+              description="Qualified and active"
+              isActive={activeFilter === 'warm'}
+              onClick={() => onSelectFilter('warm')}
+            />
+            <StatCard
+              label="Cold"
+              value={stats.cold}
+              accent="text-slate-700"
+              description="Needs more nurturing"
+              isActive={activeFilter === 'cold'}
+              onClick={() => onSelectFilter('cold')}
+            />
             <StatCard label="Escalated" value={stats.escalated} accent="text-emerald-600" description="Handed to team" />
             <StatCard label="Avg. Score" value={averageScore} accent="text-sky-600" description="Across visible leads" />
           </div>
@@ -266,44 +339,79 @@ function AdminHero({ averageScore, health, onLogout, onRefresh, stats }) {
   )
 }
 
-function LeadSidebar({ activeLeadId, leadsState, searchQuery, setActiveLeadId, setSearchQuery, stats }) {
+function LeadSidebar({
+  activeFilter,
+  activeLeadId,
+  filteredCount,
+  leadItemRefs,
+  leadsState,
+  searchQuery,
+  setActiveFilter,
+  setActiveLeadId,
+  setSearchQuery,
+  stats,
+  visibleLeads,
+}) {
   return (
-    <aside className="crm-admin-panel p-5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+    <aside className="crm-admin-panel crm-lead-sidebar crm-fade-up crm-fade-up-delay-1 p-5">
+      <div className="crm-lead-sidebar-top">
+        <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <p className="text-xs font-bold uppercase tracking-[0.18em] text-brand-muted">Pipeline</p>
           <h2 className="mt-2 font-display text-2xl font-bold text-brand-ink">Lead Queue</h2>
         </div>
-        <div className="rounded-full border border-brand-accent/15 bg-brand-soft px-3 py-2 text-xs font-semibold text-brand-ink">
-          {leadsState.items.length} visible
+          <div className="rounded-full border border-brand-accent/15 bg-brand-soft px-3 py-2 text-xs font-semibold text-brand-ink">
+          {filteredCount} visible
         </div>
       </div>
 
       <label className="mt-5 block text-sm font-semibold text-brand-ink">
         Search leads
         <input
-          className="mt-2 w-full rounded-2xl border border-brand-ink/10 bg-white px-4 py-3 outline-none transition focus:border-brand-accent"
+          className="crm-lead-search mt-2 w-full rounded-2xl border border-brand-ink/10 bg-white px-4 py-3 outline-none transition focus:border-brand-accent"
           value={searchQuery}
           onChange={(event) => setSearchQuery(event.target.value)}
           placeholder="Name or phone"
         />
       </label>
 
-      <div className="mt-5 grid grid-cols-3 gap-3">
-        <MiniStat label="Hot" value={stats.hot} tone="text-red-600" />
-        <MiniStat label="Warm" value={stats.warm} tone="text-amber-600" />
-        <MiniStat label="Cold" value={stats.cold} tone="text-slate-700" />
+      <div className="crm-filter-row mt-5">
+        {[
+          { key: 'all', label: 'All', count: leadsState.items.length },
+          { key: 'hot', label: 'Hot', count: stats.hot },
+          { key: 'warm', label: 'Warm', count: stats.warm },
+          { key: 'cold', label: 'Cold', count: stats.cold },
+        ].map((filterOption) => (
+          <button
+            key={filterOption.key}
+            type="button"
+            className={`crm-filter-chip ${activeFilter === filterOption.key ? 'crm-filter-chip-active' : ''}`}
+            onClick={() => setActiveFilter(filterOption.key)}
+          >
+            <span>{filterOption.label}</span>
+            <span className="crm-filter-chip-count">{filterOption.count}</span>
+          </button>
+        ))}
+      </div>
       </div>
 
       <div className="crm-lead-scroll mt-5 space-y-3 pr-1">
         {leadsState.loading ? <EmptyState message="Loading leads from the API..." /> : null}
         {!leadsState.loading && leadsState.error ? <ErrorState message={leadsState.error} /> : null}
-        {!leadsState.loading && !leadsState.error && leadsState.items.length === 0 ? (
-          <EmptyState message={searchQuery.trim() ? 'No leads matched this search.' : 'No leads are available yet.'} />
+        {!leadsState.loading && !leadsState.error && visibleLeads.length === 0 ? (
+          <EmptyState
+            message={
+              searchQuery.trim()
+                ? 'No leads matched this search.'
+                : activeFilter === 'all'
+                  ? 'No leads are available yet.'
+                  : `No ${activeFilter} leads are available right now.`
+            }
+          />
         ) : null}
 
         {!leadsState.loading && !leadsState.error
-          ? leadsState.items.map((lead) => {
+          ? visibleLeads.map((lead, index) => {
               const isActive = lead.id === activeLeadId
               const leadTemperature = getLeadTemperature(lead.score)
               const badgeClass = statusStyles[leadTemperature] ?? statusStyles.cold
@@ -311,11 +419,19 @@ function LeadSidebar({ activeLeadId, leadsState, searchQuery, setActiveLeadId, s
               return (
                 <button
                   key={lead.id}
+                  ref={(node) => {
+                    if (node) {
+                      leadItemRefs.current.set(lead.id, node)
+                    } else {
+                      leadItemRefs.current.delete(lead.id)
+                    }
+                  }}
                   type="button"
                   onClick={() => setActiveLeadId(lead.id)}
-                  className={`crm-lead-card w-full rounded-[26px] border p-4 text-left transition ${
+                  className={`crm-lead-card crm-fade-up-subtle w-full rounded-[26px] border p-4 text-left ${
                     isActive ? 'crm-lead-card-active border-brand-accent/40 bg-brand-soft/80' : 'border-brand-ink/10 bg-white/88'
                   }`}
+                  style={{ '--crm-enter-delay': `${Math.min(index * 35, 280)}ms` }}
                 >
                   <div className="flex items-start gap-3">
                     <div className="crm-avatar shrink-0">{getInitials(lead.name)}</div>
@@ -351,7 +467,14 @@ function LeadSidebar({ activeLeadId, leadsState, searchQuery, setActiveLeadId, s
   )
 }
 
-function LeadWorkspace({ detailViewState, onToggleConversation, selectedLead, selectedLeadTemperature, showConversation }) {
+function LeadWorkspace({
+  conversationSectionRef,
+  detailViewState,
+  onToggleConversation,
+  selectedLead,
+  selectedLeadTemperature,
+  showConversation,
+}) {
   if (detailViewState.error && !selectedLead) {
     return <ErrorState message={detailViewState.error} />
   }
@@ -361,8 +484,8 @@ function LeadWorkspace({ detailViewState, onToggleConversation, selectedLead, se
   }
 
   return (
-    <article className="crm-admin-panel overflow-hidden">
-      <div className="crm-lead-hero px-5 py-6 sm:px-6">
+    <article className="crm-admin-panel crm-workspace-panel crm-fade-up crm-fade-up-delay-2 overflow-hidden">
+      <div className="crm-lead-hero crm-workspace-header px-5 py-6 sm:px-6">
         <div className="flex flex-wrap items-start justify-between gap-5">
           <div className="flex min-w-0 items-start gap-4">
             <div className="crm-avatar crm-avatar-lg shrink-0">{getInitials(selectedLead.name)}</div>
@@ -398,7 +521,7 @@ function LeadWorkspace({ detailViewState, onToggleConversation, selectedLead, se
         </div>
       </div>
 
-      <div className="space-y-6 px-5 py-6 sm:px-6">
+      <div className="crm-workspace-scroll space-y-6 px-5 py-6 sm:px-6">
         {detailViewState.loading ? (
           <div className="rounded-3xl border border-dashed border-brand-ink/15 bg-brand-soft/40 px-4 py-5 text-sm text-brand-muted">
             Loading deeper lead data...
@@ -416,7 +539,7 @@ function LeadWorkspace({ detailViewState, onToggleConversation, selectedLead, se
           <DetailCard label="Facing" value={safeText(selectedLead.facing, 'Not captured')} />
         </div>
 
-        <div className="crm-section-card p-4">
+        <div ref={conversationSectionRef} className="crm-section-card crm-conversation-panel p-4">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
               <h3 className="font-display text-xl font-bold text-brand-ink">Conversation</h3>
@@ -436,16 +559,19 @@ function LeadWorkspace({ detailViewState, onToggleConversation, selectedLead, se
           ) : detailViewState.messages.length === 0 ? (
             <p className="mt-4 text-sm text-brand-muted">This lead does not have any chat history yet.</p>
           ) : (
-            <div className="mt-4 space-y-3">
-              {detailViewState.messages.map((message) => {
+            <div className="crm-conversation-scroll mt-4 space-y-3">
+              {detailViewState.messages.map((message, index) => {
                 const isUser = message.role === 'user'
 
                 return (
                   <article
                     key={message.id}
-                    className={`rounded-3xl border px-4 py-4 ${
-                      isUser ? 'bg-white border-brand-ink/10' : 'border-brand-accent/15 bg-brand-soft/75'
+                    className={`crm-chat-message rounded-3xl border px-4 py-4 ${
+                      isUser
+                        ? 'crm-chat-message-user bg-white border-brand-ink/10'
+                        : 'crm-chat-message-assistant border-brand-accent/15 bg-brand-soft/75'
                     }`}
+                    style={{ '--crm-enter-delay': `${Math.min(index * 45, 240)}ms` }}
                   >
                     <div className="flex flex-wrap items-center justify-between gap-3">
                       <p className="text-xs font-bold uppercase tracking-[0.14em] text-brand-muted">
@@ -479,9 +605,23 @@ function HealthBadge({ health }) {
   return <div className="rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-700">{health.status}</div>
 }
 
-function StatCard({ accent = 'text-brand-ink', description, label, value }) {
+function StatCard({ accent = 'text-brand-ink', description, isActive = false, label, onClick, value }) {
+  const sharedClassName = `crm-top-stat rounded-[24px] border border-white/80 bg-white/92 p-5 shadow-[0_14px_36px_rgba(15,23,42,0.05)] ${
+    isActive ? 'crm-top-stat-active' : ''
+  }`
+
+  if (onClick) {
+    return (
+      <button className={`${sharedClassName} text-left`} onClick={onClick} type="button">
+        <p className="text-sm font-semibold text-brand-muted">{label}</p>
+        <p className={`mt-3 font-display text-3xl font-bold ${accent}`}>{value}</p>
+        <p className="mt-2 text-xs font-medium leading-5 text-brand-muted">{description}</p>
+      </button>
+    )
+  }
+
   return (
-    <div className="rounded-[24px] border border-white/80 bg-white/92 p-5 shadow-[0_14px_36px_rgba(15,23,42,0.05)]">
+    <div className={sharedClassName}>
       <p className="text-sm font-semibold text-brand-muted">{label}</p>
       <p className={`mt-3 font-display text-3xl font-bold ${accent}`}>{value}</p>
       <p className="mt-2 text-xs font-medium leading-5 text-brand-muted">{description}</p>
@@ -491,7 +631,7 @@ function StatCard({ accent = 'text-brand-ink', description, label, value }) {
 
 function InlineMetric({ label, value }) {
   return (
-    <div className="rounded-2xl border border-brand-ink/8 bg-white/95 px-3 py-2 shadow-[0_8px_18px_rgba(15,23,42,0.04)]">
+    <div className="crm-inline-metric rounded-2xl border border-brand-ink/8 bg-white/95 px-3 py-2 shadow-[0_8px_18px_rgba(15,23,42,0.04)]">
       <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-brand-muted">{label}</p>
       <p className="mt-1 text-sm font-semibold text-brand-ink">{value}</p>
     </div>
@@ -500,25 +640,16 @@ function InlineMetric({ label, value }) {
 
 function DetailCard({ label, value }) {
   return (
-    <div className="rounded-3xl border border-brand-ink/10 bg-slate-50/90 p-4">
+    <div className="crm-detail-card rounded-3xl border border-brand-ink/10 bg-slate-50/90 p-4">
       <p className="text-xs font-bold uppercase tracking-[0.16em] text-brand-muted">{label}</p>
       <p className="mt-2 text-sm font-semibold text-brand-ink">{value}</p>
     </div>
   )
 }
 
-function MiniStat({ label, tone = 'text-brand-ink', value }) {
-  return (
-    <div className="rounded-2xl border border-brand-ink/10 bg-slate-50/90 px-3 py-3 text-center">
-      <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-brand-muted">{label}</p>
-      <p className={`mt-2 font-display text-2xl font-bold ${tone}`}>{value}</p>
-    </div>
-  )
-}
-
 function HighlightCard({ label, value }) {
   return (
-    <div className="rounded-[24px] border border-white/70 bg-white/92 px-4 py-4 shadow-[0_12px_28px_rgba(15,23,42,0.06)]">
+    <div className="crm-highlight-card rounded-[24px] border border-white/70 bg-white/92 px-4 py-4 shadow-[0_12px_28px_rgba(15,23,42,0.06)]">
       <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-brand-muted">{label}</p>
       <p className="mt-2 font-display text-2xl font-bold text-brand-ink">{value}</p>
     </div>
@@ -527,7 +658,7 @@ function HighlightCard({ label, value }) {
 
 function SummaryChip({ label, value }) {
   return (
-    <div className="rounded-2xl border border-white/70 bg-white/88 px-4 py-3 shadow-[0_10px_24px_rgba(15,23,42,0.05)]">
+    <div className="crm-summary-chip rounded-2xl border border-white/70 bg-white/88 px-4 py-3 shadow-[0_10px_24px_rgba(15,23,42,0.05)]">
       <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-brand-muted">{label}</p>
       <p className="mt-1 text-sm font-semibold text-brand-ink">{value}</p>
     </div>
