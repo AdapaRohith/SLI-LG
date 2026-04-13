@@ -73,13 +73,3 @@ export async function searchLeads(query) {
 export async function getLeadDetail(leadId) {
   return request(`/leads/${leadId}`)
 }
-
-export async function getLeadInsights(leadId) {
-  const payload = await request(`/insights/${leadId}`)
-  return payload ?? {}
-}
-
-export async function getLeadSignals(leadId) {
-  const payload = await request(`/signals/${leadId}`)
-  return normalizeCollection(payload)
-}

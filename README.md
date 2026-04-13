@@ -14,8 +14,6 @@ The frontend is wired to these GET-only endpoints:
 - `GET /` health check
 - `GET /leads` list all leads
 - `GET /leads/:id` lead plus chat history
-- `GET /insights/:lead_id` extracted lead data
-- `GET /signals/:lead_id` scoring history
 - `GET /search?q=` search leads
 
 ## Frontend behavior
@@ -23,7 +21,7 @@ The frontend is wired to these GET-only endpoints:
 - Landing page is read-only and no longer submits leads
 - Admin dashboard reads directly from the external API
 - Search uses the remote `/search` endpoint
-- Lead detail view combines lead profile, chat, insights, and signals
+- Lead detail view combines lead profile and chat history
 - No local backend, write actions, export flow, or admin unlock flow remain
 
 ## Project structure

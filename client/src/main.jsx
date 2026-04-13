@@ -4,9 +4,6 @@ import { BrowserRouter } from 'react-router-dom'
 import './index.css'
 import App from './App.jsx'
 
-document.documentElement.setAttribute('data-theme', 'light')
-window.localStorage.setItem('spacelink-theme', 'light')
-
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <BrowserRouter>
