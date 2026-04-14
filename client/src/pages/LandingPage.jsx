@@ -2,17 +2,17 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { LeadForm } from '../components/LeadForm'
 
-const benefits = ['DTCP Approved', 'Build Ready', 'IT Corridors']
+const benefits = ['Buying', 'Renting', 'Selling']
 
 const highlights = [
-  { value: 'DTCP', label: 'Approved layouts' },
-  { value: '12%', label: 'Growth focus' },
-  { value: '24/7', label: 'Call and WhatsApp' },
+  { value: '20+', label: 'Years of Experience' },
+  { value: '100%', label: 'Client Satisfaction' },
+  { value: 'End-to-End', label: 'Solutions' },
 ]
 
 const navigationItems = [
-  { label: 'Projects', href: '#projects' },
-  { label: 'Features', href: '#features' },
+  { label: 'Properties', href: '#properties' },
+  { label: 'About', href: '#features' },
   { label: 'Process', href: '#process' },
   { label: 'Testimonials', href: '#testimonials' },
   { label: 'Contact', href: '#lead-form' },
@@ -20,74 +20,74 @@ const navigationItems = [
 
 const featureCards = [
   {
-    title: 'Verified plot intelligence',
-    description: 'Clear documents and location context.',
+    title: 'Buying & Selling',
+    description: 'We help you find the ideal office space or property to buy or sell.',
   },
   {
-    title: 'Fast buyer response',
-    description: 'Quick updates for serious buyers.',
+    title: 'Real estate advisory',
+    description: 'Expert advice on your real estate investments and property planning.',
   },
   {
-    title: 'Live dashboard access',
-    description: 'View synced lead and chat data.',
+    title: 'Leasing management',
+    description: 'Comprehensive leasing and rental solutions tailored for you.',
   },
   {
-    title: 'Guided shortlist planning',
-    description: 'Compare options before a site visit.',
+    title: 'Legal compliance',
+    description: 'Guiding you through all necessary legal obligations securely.',
   },
 ]
 
 const whySpaceReasons = [
   {
-    title: 'Legal confidence first',
-    stat: 'Document-first review',
-    detail: 'Check approvals before you visit.',
+    title: 'Honesty and Integrity',
+    stat: 'Transparent Real Estate',
+    detail: 'We are working to transform this industry through honesty, integrity, and exceptional service.',
   },
   {
-    title: 'Faster buyer coordination',
-    stat: '90-minute response window',
-    detail: 'Get pricing and visit help faster.',
+    title: 'Expert Leadership',
+    stat: '20+ years expertise',
+    detail: 'Led by Mr. Karuna Kumar Vakalapudi with decades of competence in construction and finance.',
   },
   {
-    title: 'Growth corridor focus',
-    stat: '3 focus markets',
-    detail: 'Projects centered on high-growth corridors.',
+    title: 'Comprehensive Solutions',
+    stat: 'End-to-End service',
+    detail: 'Specialised end-to-end solutions for all your property, leasing, and investment needs.',
   },
 ]
 
 const projects = [
   {
-    title: 'Mokila Grand Enclave',
-    location: 'Mokila, West Hyderabad',
-    size: '267 to 600 sq. yd.',
-    status: 'Phase 2 open',
+    title: 'Premium Apartments',
+    location: 'Hyderabad',
+    size: 'Various sizes',
+    status: 'Available',
     image:
-      'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1400&q=80',
-    imageAlt: 'Aerial view of a premium plotted residential community with wide internal roads',
-    description: 'Villa-focused plotted community with ORR access.',
-    tags: ['Villa-facing plots', '30 ft. and 40 ft. roads', 'High-growth micro market'],
+      'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=1400&q=80',
+    imageAlt: 'Interior of a premium modern apartment block',
+    description: 'Explore our curated list of premium apartments across Hyderabad.',
+    tags: ['Luxury', 'City Center', 'Modern amenities'],
   },
   {
-    title: 'Shadnagar Aero County',
-    location: 'Shadnagar growth belt',
-    size: '200 to 500 sq. yd.',
-    status: 'Launching inventory',
+    title: 'Premium Villas',
+    location: 'Hyderabad',
+    size: 'Spacious layouts',
+    status: 'Available',
     image:
-      'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=1400&q=80',
-    imageAlt: 'Modern township planning zone near an emerging logistics and airport corridor',
-    description: 'Value-focused plots near growth corridors.',
-    tags: ['Entry pricing', 'Future appreciation', 'Investor-friendly inventory'],
+      'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=1400&q=80',
+    imageAlt: 'Exterior view of a luxury premium villa',
+    description: 'Spacious and luxurious villas for those who demand the best.',
+    tags: ['Independent', 'Gated community', 'Premium lifestyle'],
   },
   {
-    title: 'Yadagirigutta Temple View Plots',
-    location: 'Yadagirigutta corridor',
-    size: '180 to 400 sq. yd.',
-    status: 'Limited corner plots',
+    title: 'Office Space',
+    location: 'Hyderabad',
+    size: 'Flexible sizes',
+    status: 'Available',
     image:
-      'https://images.unsplash.com/photo-1460317442991-0ec209397118?auto=format&fit=crop&w=1400&q=80',
-    imageAlt: 'Scenic plotted development zone near destination corridor growth infrastructure',
-    description: 'Long-hold option in an emerging corridor.',
-    tags: ['Destination corridor', 'Corner plots', 'Weekend-home potential'],
+      'https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&w=1400&q=80',
+    imageAlt: 'Modern open plan office space',
+    description: 'Find the ideal office space tailored to meet your unique business goals.',
+    tags: ['Commercial', 'IT corridors', 'Business hubs'],
   },
 ]
 
@@ -105,19 +105,19 @@ const metrics = [
 
 const testimonials = [
   {
-    name: 'Praveen R.',
-    role: 'IT professional, Gachibowli',
-    quote: 'Clear shortlist and faster visits.',
+    name: 'Rama Krishna',
+    role: 'Client',
+    quote: 'Kumar delivered us the apartment with a great rental value in a good price. Thorough professional.',
   },
   {
-    name: 'Sowmya and Kiran',
-    role: 'First-time plot buyers',
-    quote: 'Clear guidance without pressure.',
+    name: 'Jagadiesh A',
+    role: 'Client',
+    quote: 'Impressed with their transparency, service, and professionalism. ALWAYS available for home tours.',
   },
   {
-    name: 'Ramanathan V.',
-    role: 'Investor, Bengaluru',
-    quote: 'Fast updates and smooth coordination.',
+    name: 'Satish Kumar',
+    role: 'Client',
+    quote: 'The best realtor we’ve ever worked with. Gets the work done seamlessly without stepping out of the house.',
   },
 ]
 
@@ -140,7 +140,7 @@ export function LandingPage() {
   const clickToCall = import.meta.env.VITE_PUBLIC_CALL_NUMBER?.replace(/\D/g, '')
   const [showFillPrompt, setShowFillPrompt] = useState(false)
   const [isNavOpen, setIsNavOpen] = useState(false)
-  const [activeNavLabel, setActiveNavLabel] = useState('Projects')
+  const [activeNavLabel, setActiveNavLabel] = useState('Properties')
   const [activeWhyReason, setActiveWhyReason] = useState(0)
 
   function handleNavItemClick(label) {
@@ -250,22 +250,22 @@ export function LandingPage() {
             <div className="relative grid gap-10 lg:grid-cols-[1.2fr_0.8fr] lg:items-center">
               <div className="animate-rise">
                 <div className="inline-flex rounded-full border border-brand-accent/20 bg-white/80 px-4 py-2 text-xs font-bold uppercase tracking-[0.22em] text-brand-accent">
-                  Hyderabad plots
+                  Hyderabad Real Estate
                 </div>
                 <p className="mt-5 text-kicker">SpaceLink Infra</p>
                 <h1 className="mt-4 max-w-3xl font-display text-4xl font-bold tracking-tight text-brand-ink sm:text-5xl lg:text-6xl">
-                  Premium open plots.
+                  Comprehensive real estate solutions.
                 </h1>
                 <p className="mt-5 max-w-2xl text-lg leading-8 text-brand-muted">
-                  DTCP-approved plotted developments in key Hyderabad corridors.
+                  Space Link provides specialised services including buying, renting, and selling properties all around Hyderabad.
                 </p>
 
                 <div className="mt-8 flex flex-wrap gap-3">
                   <a className="button-primary" href="#lead-form">
                     Contact Options
                   </a>
-                  <a className="button-secondary" href="#projects">
-                    View Projects
+                  <a className="button-secondary" href="#properties">
+                    View Properties
                   </a>
                   {clickToCall ? (
                     <a className="button-secondary" href={`tel:${clickToCall}`}>
@@ -373,23 +373,23 @@ export function LandingPage() {
           </div>
         </section>
 
-        <section className="shell pb-8 sm:pb-12" id="projects">
+        <section className="shell pb-8 sm:pb-12" id="properties">
           <div className="glass-card p-8 sm:p-10">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
               <div className="max-w-2xl">
-                <p className="text-kicker">Our Projects</p>
-                <h2 className="section-title mt-3">Current projects.</h2>
+                <p className="text-kicker">Property Types</p>
+                <h2 className="section-title mt-3">Available properties.</h2>
               </div>
 
               <div className="flex flex-wrap gap-3">
                 <span className="rounded-full bg-brand-soft px-4 py-2 text-sm font-semibold text-brand-ink">
-                  Villa plots
+                  Apartments
                 </span>
                 <span className="rounded-full bg-brand-soft px-4 py-2 text-sm font-semibold text-brand-ink">
-                  Investor inventory
+                  Villas
                 </span>
                 <span className="rounded-full bg-brand-soft px-4 py-2 text-sm font-semibold text-brand-ink">
-                  Destination corridors
+                  Commercial
                 </span>
               </div>
             </div>
