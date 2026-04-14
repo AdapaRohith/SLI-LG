@@ -29,6 +29,8 @@ export function AdminPage() {
   const [refreshKey, setRefreshKey] = useState(0)
   const [activeTab, setActiveTab] = useState('overview')
   const [isMobileDetailOpen, setIsMobileDetailOpen] = useState(false)
+  const [isExporting, setIsExporting] = useState(false)
+  const [exportMessage, setExportMessage] = useState(null)
 
   useEffect(() => {
     let ignore = false
@@ -213,6 +215,68 @@ export function AdminPage() {
     setIsMobileDetailOpen(false)
   }
 
+  async function handleExport() {
+    const leads = filteredLeads
+    if (!leads.length || isExporting) return
+
+    setIsExporting(true)
+    try {
+      const payload = []
+      
+      for (const lead of leads) {
+        let chats = ''
+        if ((lead.message_count ?? 0) > 0) {
+          try {
+            const detail = await getLeadDetail(lead.id)
+            if (detail?.messages?.length > 0) {
+              chats = detail.messages.map(m => `[${formatDateTime(m.created_at)}] ${m.role === 'user' ? 'Lead' : 'Assistant'}: ${m.message_text}`).join('\n')
+            }
+          } catch (e) {
+            chats = 'Error fetching chat'
+          }
+        }
+        
+        payload.push({
+          Name: safeText(lead.name, ''),
+          Phone: safeText(lead.phone, ''),
+          Score: lead.score ?? 0,
+          Status: getLeadTemperature(lead.score).toUpperCase(),
+          Messages: lead.message_count ?? 0,
+          Escalated: lead.escalated ? 'Yes' : 'No',
+          BudgetMin: lead.budget_min ?? '',
+          BudgetMax: lead.budget_max ?? '',
+          Estimate: lead.budget_estimate ?? '',
+          Locations: formatPreferredLocations(lead.preferred_locations),
+          Size: safeText(lead.size_preference, ''),
+          Facing: safeText(lead.facing, ''),
+          Created: formatDateTime(lead.created_at),
+          Updated: formatDateTime(lead.updated_at),
+          Chats: chats
+        })
+      }
+      
+      const response = await fetch('https://n8n-bak.avlokai.com/webhook/cc87c364-355f-4cf1-9387-b6589bc009b0', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ data: payload })
+      })
+
+      if (!response.ok) {
+        throw new Error('Webhook error')
+      }
+      setExportMessage('Exported successfully')
+      setTimeout(() => setExportMessage(null), 3000)
+    } catch (err) {
+      console.error('Export failed:', err)
+      setExportMessage('Export failed')
+      setTimeout(() => setExportMessage(null), 3000)
+    } finally {
+      setIsExporting(false)
+    }
+  }
+
   return (
     <div className="crm-admin-page shell py-8 sm:py-10">
       <div className="crm-admin-shell p-4 sm:p-6 lg:p-8">
@@ -220,6 +284,8 @@ export function AdminPage() {
           activeFilter={activeFilter}
           averageScore={averageScore}
           health={health}
+          onExport={handleExport}
+          isExporting={isExporting}
           onLogout={handleLogout}
           onRefresh={() => setRefreshKey((value) => value + 1)}
           onSelectFilter={handleSelectFilter}
@@ -231,9 +297,11 @@ export function AdminPage() {
             activeLeadId={activeLeadId}
             activeFilter={activeFilter}
             filteredCount={filteredLeads.length}
+            isExporting={isExporting}
             leadItemRefs={leadItemRefs}
             leadsState={leadsState}
             onCloseMobileDetail={handleBackToList}
+            onExport={handleExport}
             onSelectLead={handleSelectLead}
             searchQuery={searchQuery}
             setActiveFilter={handleSelectFilter}
@@ -254,6 +322,12 @@ export function AdminPage() {
           />
         </div>
       </div>
+
+      {exportMessage && (
+        <div className="fixed bottom-6 right-6 z-50 rounded-2xl bg-brand-ink px-6 py-4 text-sm font-medium text-white shadow-xl">
+          {exportMessage}
+        </div>
+      )}
     </div>
   )
 }
@@ -311,7 +385,7 @@ function AdminHero({ activeFilter, averageScore, health, onLogout, onRefresh, on
               onClick={() => onSelectFilter('warm')}
             />
             <StatCard
-              label="New"
+              label="Others"
               value={stats.cold}
               accent="text-slate-700"
               description="Low score"
@@ -331,9 +405,11 @@ function LeadSidebar({
   activeFilter,
   activeLeadId,
   filteredCount,
+  isExporting,
   leadItemRefs,
   leadsState,
   onCloseMobileDetail,
+  onExport,
   onSelectLead,
   searchQuery,
   setActiveFilter,
@@ -345,7 +421,7 @@ function LeadSidebar({
     { key: 'all', label: 'All', count: leadsState.items.length },
     { key: 'hot', label: 'Priority', count: stats.hot },
     { key: 'warm', label: 'Active', count: stats.warm },
-    { key: 'cold', label: 'New', count: stats.cold },
+    { key: 'cold', label: 'Others', count: stats.cold },
   ]
 
   return (
@@ -456,6 +532,16 @@ function LeadSidebar({
               )
             })
           : null}
+      </div>
+      <div className="mt-4 border-t border-brand-ink/10 pt-4">
+        <button
+          className="button-secondary w-full justify-center"
+          onClick={onExport}
+          disabled={isExporting || visibleLeads.length === 0}
+          type="button"
+        >
+          {isExporting ? 'Exporting...' : `Export ${visibleLeads.length} leads`}
+        </button>
       </div>
     </aside>
   )
@@ -808,7 +894,7 @@ function formatTemperatureLabel(value) {
     return 'Active'
   }
 
-  return 'New'
+  return 'Others'
 }
 
 function normalizePhoneNumber(value) {
