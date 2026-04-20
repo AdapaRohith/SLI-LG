@@ -222,23 +222,33 @@ export function AdminPage() {
     setIsExporting(true)
     try {
       const payload = []
-      
+
       for (const lead of leads) {
+        let detail = null
         let chats = ''
+
         if ((lead.message_count ?? 0) > 0) {
           try {
-            const detail = await getLeadDetail(lead.id)
+            detail = await getLeadDetail(lead.id)
             if (detail?.messages?.length > 0) {
-              chats = detail.messages.map(m => `[${formatDateTime(m.created_at)}] ${m.role === 'user' ? 'Lead' : 'Assistant'}: ${m.message_text}`).join('\n')
+              chats = detail.messages
+                .map(
+                  (message) =>
+                    `[${formatDateTime(message.created_at)}] ${
+                      message.role === 'user' ? 'Lead' : 'Assistant'
+                    }: ${message.message_text}`,
+                )
+                .join('\n')
             }
-          } catch (e) {
+          } catch {
             chats = 'Error fetching chat'
           }
         }
-        
+
         payload.push({
           Name: safeText(lead.name, ''),
           Phone: safeText(lead.phone, ''),
+          Date: formatExportDate(getFirstReceivedAt(detail?.messages, lead)),
           Score: lead.score ?? 0,
           Status: getLeadTemperature(lead.score).toUpperCase(),
           Messages: lead.message_count ?? 0,
@@ -250,17 +260,17 @@ export function AdminPage() {
           Size: safeText(lead.size_preference, ''),
           Facing: safeText(lead.facing, ''),
           Created: formatDateTime(lead.created_at),
-          Updated: formatDateTime(lead.updated_at),
-          Chats: chats
+          Updated: formatDateTime(getLastMessageAt(detail?.messages, lead)),
+          Chats: chats,
         })
       }
-      
+
       const response = await fetch('https://n8n-bak.avlokai.com/webhook/cc87c364-355f-4cf1-9387-b6589bc009b0', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ data: payload })
+        body: JSON.stringify({ data: payload }),
       })
 
       if (!response.ok) {
@@ -827,6 +837,46 @@ function safeText(value, fallback) {
   }
 
   return text
+}
+
+function getFirstReceivedAt(messages, lead) {
+  if (Array.isArray(messages) && messages.length > 0) {
+    const firstUserMessage = messages.find((message) => message?.role === 'user' && message?.created_at)
+    if (firstUserMessage?.created_at) {
+      return firstUserMessage.created_at
+    }
+
+    const firstMessage = messages.find((message) => message?.created_at)
+    if (firstMessage?.created_at) {
+      return firstMessage.created_at
+    }
+  }
+
+  return lead?.created_at ?? ''
+}
+
+function getLastMessageAt(messages, lead) {
+  if (Array.isArray(messages) && messages.length > 0) {
+    const lastMessage = [...messages].reverse().find((message) => message?.created_at)
+    if (lastMessage?.created_at) {
+      return lastMessage.created_at
+    }
+  }
+
+  return lead?.last_message_at ?? lead?.updated_at ?? lead?.created_at ?? ''
+}
+
+function formatExportDate(value) {
+  if (!value) {
+    return ''
+  }
+
+  const parsed = new Date(value)
+  if (Number.isNaN(parsed.getTime())) {
+    return ''
+  }
+
+  return parsed.toLocaleDateString('en-CA')
 }
 
 function formatDateTime(value) {
