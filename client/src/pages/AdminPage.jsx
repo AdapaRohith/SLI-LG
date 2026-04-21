@@ -31,6 +31,7 @@ export function AdminPage() {
   const [isMobileDetailOpen, setIsMobileDetailOpen] = useState(false)
   const [isExporting, setIsExporting] = useState(false)
   const [exportMessage, setExportMessage] = useState(null)
+  const [exportDateRange, setExportDateRange] = useState(getDefaultExportDateRange)
 
   useEffect(() => {
     let ignore = false
@@ -194,6 +195,14 @@ export function AdminPage() {
   const selectedLead = detailViewState.lead ?? filteredLeads.find((lead) => lead.id === activeLeadId) ?? null
   const selectedLeadTemperature = selectedLead ? getLeadTemperature(selectedLead.score) : 'cold'
   const showConversation = activeTab === 'chat'
+  const exportDateRangeError = getExportDateRangeError(exportDateRange)
+  const exportLeads = useMemo(() => {
+    if (exportDateRangeError) {
+      return []
+    }
+
+    return filterLeadsByCreatedAt(filteredLeads, exportDateRange)
+  }, [exportDateRange, exportDateRangeError, filteredLeads])
 
   function handleLogout() {
     clearAdminAuthentication()
@@ -216,7 +225,13 @@ export function AdminPage() {
   }
 
   async function handleExport() {
-    const leads = filteredLeads
+    if (exportDateRangeError) {
+      setExportMessage(exportDateRangeError)
+      setTimeout(() => setExportMessage(null), 3000)
+      return
+    }
+
+    const leads = exportLeads
     if (!leads.length || isExporting) return
 
     setIsExporting(true)
@@ -234,7 +249,7 @@ export function AdminPage() {
               chats = detail.messages
                 .map(
                   (message) =>
-                    `[${formatDateTime(message.created_at)}] ${
+                    `[${formatExportDateTime(message.created_at)}] ${
                       message.role === 'user' ? 'Lead' : 'Assistant'
                     }: ${message.message_text}`,
                 )
@@ -259,8 +274,8 @@ export function AdminPage() {
           Locations: formatPreferredLocations(lead.preferred_locations),
           Size: safeText(lead.size_preference, ''),
           Facing: safeText(lead.facing, ''),
-          Created: formatDateTime(lead.created_at),
-          Updated: formatDateTime(getLastMessageAt(detail?.messages, lead)),
+          Created: formatExportDateTime(lead.created_at),
+          Updated: formatExportDateTime(getLastMessageAt(detail?.messages, lead)),
           Chats: chats,
         })
       }
@@ -293,9 +308,13 @@ export function AdminPage() {
         <AdminHero
           activeFilter={activeFilter}
           averageScore={averageScore}
+          exportDateRange={exportDateRange}
+          exportDateRangeError={exportDateRangeError}
+          exportLeadsCount={exportLeads.length}
           health={health}
           onExport={handleExport}
           isExporting={isExporting}
+          onExportDateRangeChange={setExportDateRange}
           onLogout={handleLogout}
           onRefresh={() => setRefreshKey((value) => value + 1)}
           onSelectFilter={handleSelectFilter}
@@ -307,11 +326,9 @@ export function AdminPage() {
             activeLeadId={activeLeadId}
             activeFilter={activeFilter}
             filteredCount={filteredLeads.length}
-            isExporting={isExporting}
             leadItemRefs={leadItemRefs}
             leadsState={leadsState}
             onCloseMobileDetail={handleBackToList}
-            onExport={handleExport}
             onSelectLead={handleSelectLead}
             searchQuery={searchQuery}
             setActiveFilter={handleSelectFilter}
@@ -342,7 +359,21 @@ export function AdminPage() {
   )
 }
 
-function AdminHero({ activeFilter, averageScore, health, onLogout, onRefresh, onSelectFilter, stats }) {
+function AdminHero({
+  activeFilter,
+  averageScore,
+  exportDateRange,
+  exportDateRangeError,
+  exportLeadsCount,
+  health,
+  isExporting,
+  onExport,
+  onExportDateRangeChange,
+  onLogout,
+  onRefresh,
+  onSelectFilter,
+  stats,
+}) {
   return (
     <section className="crm-admin-hero crm-fade-up">
       <div className="crm-admin-hero-card relative overflow-hidden rounded-[32px] border border-brand-ink/8 bg-white/88 p-6 shadow-[0_22px_60px_rgba(15,23,42,0.08)] sm:p-8">
@@ -368,6 +399,15 @@ function AdminHero({ activeFilter, averageScore, health, onLogout, onRefresh, on
                 Sign out
               </button>
             </div>
+
+            <ExportControls
+              exportDateRange={exportDateRange}
+              exportDateRangeError={exportDateRangeError}
+              exportLeadsCount={exportLeadsCount}
+              isExporting={isExporting}
+              onExport={onExport}
+              onExportDateRangeChange={onExportDateRangeChange}
+            />
           </div>
 
           <div className="grid w-full gap-4 sm:grid-cols-2 xl:w-[520px] xl:grid-cols-3">
@@ -415,11 +455,9 @@ function LeadSidebar({
   activeFilter,
   activeLeadId,
   filteredCount,
-  isExporting,
   leadItemRefs,
   leadsState,
   onCloseMobileDetail,
-  onExport,
   onSelectLead,
   searchQuery,
   setActiveFilter,
@@ -543,17 +581,102 @@ function LeadSidebar({
             })
           : null}
       </div>
-      <div className="mt-4 border-t border-brand-ink/10 pt-4">
+    </aside>
+  )
+}
+
+function ExportControls({
+  exportDateRange,
+  exportDateRangeError,
+  exportLeadsCount,
+  isExporting,
+  onExport,
+  onExportDateRangeChange,
+}) {
+  return (
+    <div className="mt-6 rounded-[24px] border border-brand-ink/8 bg-white/82 p-4 shadow-[0_12px_32px_rgba(15,23,42,0.05)]">
+      <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] md:items-end">
+        <label className="block text-xs font-bold uppercase tracking-[0.16em] text-brand-muted">
+          From
+          <ExportDateField
+            label="From"
+            value={exportDateRange.from}
+            onChange={(value) => onExportDateRangeChange((current) => ({ ...current, from: value }))}
+          />
+        </label>
+        <label className="block text-xs font-bold uppercase tracking-[0.16em] text-brand-muted">
+          To
+          <ExportDateField
+            label="To"
+            value={exportDateRange.to}
+            onChange={(value) => onExportDateRangeChange((current) => ({ ...current, to: value }))}
+          />
+        </label>
         <button
-          className="button-secondary w-full justify-center"
+          className="button-secondary w-full justify-center md:w-auto"
           onClick={onExport}
-          disabled={isExporting || visibleLeads.length === 0}
+          disabled={isExporting || Boolean(exportDateRangeError) || exportLeadsCount === 0}
           type="button"
         >
-          {isExporting ? 'Exporting...' : `Export ${visibleLeads.length} leads`}
+          {isExporting ? 'Exporting...' : `Export ${exportLeadsCount} leads`}
         </button>
       </div>
-    </aside>
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs font-semibold text-brand-muted">
+        <span>{exportDateRangeError || `${exportLeadsCount} matching created date`}</span>
+        {(exportDateRange.from || exportDateRange.to) && (
+          <button
+            className="font-bold text-brand-accent transition hover:text-brand-ink"
+            onClick={() => onExportDateRangeChange(getDefaultExportDateRange())}
+            type="button"
+          >
+            Clear
+          </button>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function ExportDateField({ label, onChange, value }) {
+  const inputRef = useRef(null)
+
+  function openPicker() {
+    const input = inputRef.current
+    if (!input) {
+      return
+    }
+
+    try {
+      if (typeof input.showPicker === 'function') {
+        input.showPicker()
+      } else {
+        input.focus()
+        input.click()
+      }
+    } catch {
+      input.focus()
+    }
+  }
+
+  return (
+    <span className="relative mt-2 block">
+      <button
+        className="crm-lead-search block w-full rounded-2xl border border-brand-ink/10 bg-white px-4 py-3 text-left text-sm font-medium normal-case tracking-normal text-brand-ink outline-none transition focus:border-brand-accent"
+        onClick={openPicker}
+        type="button"
+      >
+        {formatDatePickerDisplay(value) || 'Select date and time'}
+      </button>
+      <input
+        aria-label={label}
+        className="absolute left-4 top-1/2 h-px w-px -translate-y-1/2 opacity-0"
+        ref={inputRef}
+        type="datetime-local"
+        step="1"
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+      />
+    </span>
   )
 }
 
@@ -866,6 +989,137 @@ function getLastMessageAt(messages, lead) {
   return lead?.last_message_at ?? lead?.updated_at ?? lead?.created_at ?? ''
 }
 
+function filterLeadsByCreatedAt(leads, range) {
+  const hasRange = Boolean(range.from || range.to)
+  if (!hasRange) {
+    return leads
+  }
+
+  const fromTime = parseDateInputTime(range.from)
+  const toTime = parseDateInputTime(range.to)
+
+  return leads.filter((lead) => {
+    const createdAt = new Date(lead?.created_at).getTime()
+    if (!Number.isFinite(createdAt)) {
+      return false
+    }
+
+    if (fromTime !== null && createdAt < fromTime) {
+      return false
+    }
+
+    if (toTime !== null && createdAt > toTime) {
+      return false
+    }
+
+    return true
+  })
+}
+
+function getExportDateRangeError(range) {
+  const fromTime = parseDateInputTime(range.from)
+  const toTime = parseDateInputTime(range.to)
+
+  if (range.from && fromTime === null) {
+    return 'Enter a valid from timestamp'
+  }
+
+  if (range.to && toTime === null) {
+    return 'Enter a valid to timestamp'
+  }
+
+  if (fromTime !== null && toTime !== null && fromTime > toTime) {
+    return 'From timestamp must be before to timestamp'
+  }
+
+  return ''
+}
+
+function parseDateInputTime(value) {
+  if (!value) {
+    return null
+  }
+
+  const trimmedValue = String(value).trim()
+  const customMatch = trimmedValue.match(
+    /^(\d{1,2})-([a-z]+)-(\d{4})(?:\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm))?$/i,
+  )
+
+  if (customMatch) {
+    const [, dayValue, monthValue, yearValue, hourValue, minuteValue = '0', meridiemValue] = customMatch
+    const monthIndex = getExportMonthIndex(monthValue)
+
+    if (monthIndex === -1) {
+      return null
+    }
+
+    let hours = Number(hourValue ?? 0)
+    const minutes = Number(minuteValue)
+
+    if (meridiemValue) {
+      if (hours < 1 || hours > 12 || minutes < 0 || minutes > 59) {
+        return null
+      }
+
+      const meridiem = meridiemValue.toLowerCase()
+      if (meridiem === 'pm' && hours < 12) {
+        hours += 12
+      }
+
+      if (meridiem === 'am' && hours === 12) {
+        hours = 0
+      }
+    } else if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) {
+      return null
+    }
+
+    const parsed = new Date(Number(yearValue), monthIndex, Number(dayValue), hours, minutes)
+    if (
+      parsed.getFullYear() !== Number(yearValue) ||
+      parsed.getMonth() !== monthIndex ||
+      parsed.getDate() !== Number(dayValue)
+    ) {
+      return null
+    }
+
+    return parsed.getTime()
+  }
+
+  const fallbackTime = new Date(trimmedValue).getTime()
+  return Number.isNaN(fallbackTime) ? null : fallbackTime
+}
+
+function getDefaultExportDateRange() {
+  return { from: '', to: getCurrentDateTimeInputValue() }
+}
+
+function getCurrentDateTimeInputValue() {
+  const now = new Date()
+  const timezoneOffset = now.getTimezoneOffset() * 60000
+  return new Date(now.getTime() - timezoneOffset).toISOString().slice(0, 19)
+}
+
+function getExportMonthIndex(value) {
+  return getExportMonthNames().indexOf(String(value ?? '').trim().toLowerCase())
+}
+
+function getExportMonthNames() {
+  return [
+    'january',
+    'february',
+    'march',
+    'april',
+    'may',
+    'june',
+    'july',
+    'august',
+    'september',
+    'october',
+    'november',
+    'december',
+  ]
+}
+
 function formatExportDate(value) {
   if (!value) {
     return ''
@@ -876,7 +1130,38 @@ function formatExportDate(value) {
     return ''
   }
 
-  return parsed.toLocaleDateString('en-CA')
+  return formatExportDatePart(parsed)
+}
+
+function formatExportDateTime(value) {
+  if (!value) {
+    return ''
+  }
+
+  const parsed = new Date(value)
+  if (Number.isNaN(parsed.getTime())) {
+    return ''
+  }
+
+  return `${formatExportDatePart(parsed)} ${formatExportTimePart(parsed)}`
+}
+
+function formatDatePickerDisplay(value) {
+  return formatExportDateTime(value)
+}
+
+function formatExportDatePart(date) {
+  const months = getExportMonthNames()
+
+  return `${date.getDate()}-${months[date.getMonth()]}-${date.getFullYear()}`
+}
+
+function formatExportTimePart(date) {
+  return new Intl.DateTimeFormat('en-US', {
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  }).format(date)
 }
 
 function formatDateTime(value) {
@@ -889,7 +1174,7 @@ function formatDateTime(value) {
     return 'N/A'
   }
 
-  return parsed.toLocaleString()
+  return `${formatExportDatePart(parsed)} ${formatExportTimePart(parsed)}`
 }
 
 function formatShortDate(value) {
@@ -902,10 +1187,7 @@ function formatShortDate(value) {
     return 'N/A'
   }
 
-  return parsed.toLocaleDateString('en-IN', {
-    day: 'numeric',
-    month: 'short',
-  })
+  return formatExportDatePart(parsed)
 }
 
 function getInitials(value) {
