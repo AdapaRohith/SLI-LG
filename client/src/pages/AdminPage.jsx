@@ -25,6 +25,7 @@ export function AdminPage() {
   const [leadsState, setLeadsState] = useState({ loading: true, error: '', items: [] })
   const [selectedLeadId, setSelectedLeadId] = useState('')
   const [activeFilter, setActiveFilter] = useState('all')
+  const [activeSourceFilter, setActiveSourceFilter] = useState('all')
   const [detailState, setDetailState] = useState(EMPTY_DETAIL_STATE)
   const [refreshKey, setRefreshKey] = useState(0)
   const [activeTab, setActiveTab] = useState('overview')
@@ -119,13 +120,35 @@ export function AdminPage() {
     )
   }, [leadsState.items])
 
-  const filteredLeads = useMemo(() => {
-    if (activeFilter === 'all') {
-      return leadsState.items
-    }
+  const sourceFilterOptions = useMemo(() => {
+    const sourceCounts = leadsState.items.reduce((counts, lead) => {
+      const sourceKey = getLeadSourceKey(lead)
+      const current = counts.get(sourceKey) ?? {
+        key: sourceKey,
+        label: formatLeadSource(lead?.source),
+        count: 0,
+      }
 
-    return leadsState.items.filter((lead) => getLeadTemperature(lead.score) === activeFilter)
-  }, [activeFilter, leadsState.items])
+      current.count += 1
+      counts.set(sourceKey, current)
+
+      return counts
+    }, new Map())
+
+    return [
+      { key: 'all', label: 'All sources', count: leadsState.items.length },
+      ...Array.from(sourceCounts.values()).sort((first, second) => first.label.localeCompare(second.label)),
+    ]
+  }, [leadsState.items])
+
+  const filteredLeads = useMemo(() => {
+    return leadsState.items.filter((lead) => {
+      const matchesStatus = activeFilter === 'all' || getLeadTemperature(lead.score) === activeFilter
+      const matchesSource = activeSourceFilter === 'all' || getLeadSourceKey(lead) === activeSourceFilter
+
+      return matchesStatus && matchesSource
+    })
+  }, [activeFilter, activeSourceFilter, leadsState.items])
 
   const activeLeadId = useMemo(() => {
     if (filteredLeads.length === 0) {
@@ -224,6 +247,11 @@ export function AdminPage() {
     setIsMobileDetailOpen(false)
   }
 
+  function handleSelectSourceFilter(sourceKey) {
+    setActiveSourceFilter(sourceKey)
+    setIsMobileDetailOpen(false)
+  }
+
   async function handleExport() {
     if (exportDateRangeError) {
       setExportMessage(exportDateRangeError)
@@ -266,6 +294,7 @@ export function AdminPage() {
           Date: formatExportDate(getFirstReceivedAt(detail?.messages, lead)),
           Score: lead.score ?? 0,
           Status: getLeadTemperature(lead.score).toUpperCase(),
+          Source: formatLeadSource(lead.source),
           Messages: lead.message_count ?? 0,
           Escalated: lead.escalated ? 'Yes' : 'No',
           BudgetMin: lead.budget_min ?? '',
@@ -325,14 +354,17 @@ export function AdminPage() {
           <LeadSidebar
             activeLeadId={activeLeadId}
             activeFilter={activeFilter}
+            activeSourceFilter={activeSourceFilter}
             filteredCount={filteredLeads.length}
             leadItemRefs={leadItemRefs}
             leadsState={leadsState}
             onCloseMobileDetail={handleBackToList}
             onSelectLead={handleSelectLead}
+            onSelectSourceFilter={handleSelectSourceFilter}
             searchQuery={searchQuery}
             setActiveFilter={handleSelectFilter}
             setSearchQuery={setSearchQuery}
+            sourceFilterOptions={sourceFilterOptions}
             stats={stats}
             visibleLeads={filteredLeads}
           />
@@ -454,14 +486,17 @@ function AdminHero({
 function LeadSidebar({
   activeFilter,
   activeLeadId,
+  activeSourceFilter,
   filteredCount,
   leadItemRefs,
   leadsState,
   onCloseMobileDetail,
   onSelectLead,
+  onSelectSourceFilter,
   searchQuery,
   setActiveFilter,
   setSearchQuery,
+  sourceFilterOptions,
   stats,
   visibleLeads,
 }) {
@@ -511,6 +546,24 @@ function LeadSidebar({
             </button>
           ))}
         </div>
+
+        <label className="mt-5 block text-sm font-semibold text-brand-ink">
+          Source
+          <select
+            className="crm-lead-search mt-2 w-full rounded-2xl border border-brand-ink/10 bg-white px-4 py-3 outline-none transition focus:border-brand-accent"
+            value={activeSourceFilter}
+            onChange={(event) => {
+              onCloseMobileDetail()
+              onSelectSourceFilter(event.target.value)
+            }}
+          >
+            {sourceFilterOptions.map((sourceOption) => (
+              <option key={sourceOption.key} value={sourceOption.key}>
+                {sourceOption.label} ({sourceOption.count})
+              </option>
+            ))}
+          </select>
+        </label>
       </div>
 
       <div className="crm-lead-scroll mt-5 space-y-3 pr-1">
@@ -572,7 +625,7 @@ function LeadSidebar({
 
                       <div className="mt-4 flex flex-wrap items-center justify-between gap-2 text-xs text-brand-muted">
                         <span>{formatBudgetRange(lead)}</span>
-                        <span>{formatShortDate(lead.last_message_at)}</span>
+                        <span className="crm-source-pill">{formatLeadSource(lead.source)}</span>
                       </div>
                     </div>
                   </div>
@@ -746,7 +799,8 @@ function LeadWorkspace({
           </div>
         </div>
 
-        <div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+          <SummaryChip label="Source" value={formatLeadSource(selectedLead.source)} />
           <SummaryChip label="Escalated" value={selectedLead.escalated ? 'Yes' : 'No'} />
           <SummaryChip label="Chat" value={selectedLead.message_count ?? 0} />
           <SummaryChip label="Budget" value={formatBudgetRange(selectedLead)} />
@@ -784,6 +838,7 @@ function LeadWorkspace({
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             <DetailCard label="Name" value={safeText(selectedLead.name, 'Unknown lead')} />
             <DetailCard label="Phone" value={safeText(selectedLead.phone, 'Unavailable')} />
+            <DetailCard label="Source" value={formatLeadSource(selectedLead.source)} />
             <DetailCard label="Status" value={formatTemperatureLabel(selectedLeadTemperature)} />
             <DetailCard label="Score" value={selectedLead.score ?? 0} />
             <DetailCard label="Budget" value={formatBudgetRange(selectedLead)} />
@@ -960,6 +1015,33 @@ function safeText(value, fallback) {
   }
 
   return text
+}
+
+function getLeadSourceKey(lead) {
+  return safeText(lead?.source, 'unknown').toLowerCase()
+}
+
+function formatLeadSource(value) {
+  const source = safeText(value, 'Unknown')
+
+  return source
+    .replace(/[_-]+/g, ' ')
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((part) => {
+      const lowerPart = part.toLowerCase()
+
+      if (['utm', 'seo', 'ppc'].includes(lowerPart)) {
+        return lowerPart.toUpperCase()
+      }
+
+      if (lowerPart === 'fb') {
+        return 'Facebook'
+      }
+
+      return `${lowerPart.charAt(0).toUpperCase()}${lowerPart.slice(1)}`
+    })
+    .join(' ')
 }
 
 function getFirstReceivedAt(messages, lead) {

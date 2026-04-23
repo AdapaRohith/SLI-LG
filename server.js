@@ -29,6 +29,74 @@ app.get("/", (req, res) => {
 
 
 // =======================
+// CREATE / UPSERT LEAD (WITH SOURCE)
+// =======================
+app.post("/leads", async (req, res) => {
+  try {
+    let {
+      name,
+      phone,
+      source,
+      campaign,
+      adset,
+      ad,
+      source_raw
+    } = req.body;
+
+    if (!phone) {
+      return res.status(400).json({ error: "Phone is required" });
+    }
+
+    // normalize phone (last 10 digits)
+    const cleanPhone = phone.replace(/\D/g, "").slice(-10);
+
+    const result = await pool.query(
+      `
+      INSERT INTO leads (
+        name,
+        phone,
+        source,
+        campaign,
+        adset,
+        ad,
+        source_raw,
+        last_message_at,
+        message_count
+      )
+      VALUES ($1,$2,$3,$4,$5,$6,$7,NOW(),1)
+
+      ON CONFLICT (phone)
+      DO UPDATE SET
+        name = COALESCE(EXCLUDED.name, leads.name),
+        last_message_at = NOW(),
+        message_count = leads.message_count + 1
+
+      -- DO NOT overwrite source if already set
+      WHERE leads.source IS NULL OR leads.source = 'unknown'
+
+      RETURNING *;
+      `,
+      [
+        name || null,
+        cleanPhone,
+        source || "unknown",
+        campaign || null,
+        adset || null,
+        ad || null,
+        source_raw || null
+      ]
+    );
+
+    res.json(result.rows[0]);
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to create/update lead" });
+  }
+});
+
+
+// =======================
 // GET ALL LEADS
 // =======================
 app.get("/leads", async (req, res) => {
