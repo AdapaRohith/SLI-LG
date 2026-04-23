@@ -7,7 +7,8 @@
     "dev": "vite . --configLoader native",
     "build": "vite build . --configLoader native",
     "lint": "eslint .",
-    "preview": "vite preview . --configLoader native"
+    "preview": "npm run build && wrangler dev",
+    "deploy": "npm run build && wrangler deploy"
   },
   "dependencies": {
     "react": "^19.2.4",
@@ -15,6 +16,7 @@
     "react-router-dom": "^7.13.2"
   },
   "devDependencies": {
+    "@cloudflare/vite-plugin": "^1.33.1",
     "@eslint/js": "^9.39.4",
     "@tailwindcss/vite": "^4.2.2",
     "@types/react": "^19.2.14",
@@ -25,6 +27,7 @@
     "eslint-plugin-react-refresh": "^0.5.2",
     "globals": "^17.4.0",
     "tailwindcss": "^4.2.2",
-    "vite": "^8.0.1"
+    "vite": "^8.0.1",
+    "wrangler": "^4.84.1"
   }
 }
