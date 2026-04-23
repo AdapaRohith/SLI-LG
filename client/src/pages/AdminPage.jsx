@@ -336,6 +336,7 @@ export function AdminPage() {
       <div className="crm-admin-shell p-4 sm:p-6 lg:p-8">
         <AdminHero
           activeFilter={activeFilter}
+          activeSourceFilter={activeSourceFilter}
           averageScore={averageScore}
           exportDateRange={exportDateRange}
           exportDateRangeError={exportDateRangeError}
@@ -347,6 +348,8 @@ export function AdminPage() {
           onLogout={handleLogout}
           onRefresh={() => setRefreshKey((value) => value + 1)}
           onSelectFilter={handleSelectFilter}
+          onSelectSourceFilter={handleSelectSourceFilter}
+          sourceFilterOptions={sourceFilterOptions}
           stats={stats}
         />
 
@@ -393,6 +396,7 @@ export function AdminPage() {
 
 function AdminHero({
   activeFilter,
+  activeSourceFilter,
   averageScore,
   exportDateRange,
   exportDateRangeError,
@@ -404,6 +408,8 @@ function AdminHero({
   onLogout,
   onRefresh,
   onSelectFilter,
+  onSelectSourceFilter,
+  sourceFilterOptions,
   stats,
 }) {
   return (
@@ -433,12 +439,15 @@ function AdminHero({
             </div>
 
             <ExportControls
+              activeSourceFilter={activeSourceFilter}
               exportDateRange={exportDateRange}
               exportDateRangeError={exportDateRangeError}
               exportLeadsCount={exportLeadsCount}
               isExporting={isExporting}
               onExport={onExport}
               onExportDateRangeChange={onExportDateRangeChange}
+              onSelectSourceFilter={onSelectSourceFilter}
+              sourceFilterOptions={sourceFilterOptions}
             />
           </div>
 
@@ -639,16 +648,19 @@ function LeadSidebar({
 }
 
 function ExportControls({
+  activeSourceFilter,
   exportDateRange,
   exportDateRangeError,
   exportLeadsCount,
   isExporting,
   onExport,
   onExportDateRangeChange,
+  onSelectSourceFilter,
+  sourceFilterOptions,
 }) {
   return (
     <div className="mt-6 rounded-[24px] border border-brand-ink/8 bg-white/82 p-4 shadow-[0_12px_32px_rgba(15,23,42,0.05)]">
-      <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] md:items-end">
+      <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_auto] md:items-end">
         <label className="block text-xs font-bold uppercase tracking-[0.16em] text-brand-muted">
           From
           <ExportDateField
@@ -664,6 +676,20 @@ function ExportControls({
             value={exportDateRange.to}
             onChange={(value) => onExportDateRangeChange((current) => ({ ...current, to: value }))}
           />
+        </label>
+        <label className="block text-xs font-bold uppercase tracking-[0.16em] text-brand-muted">
+          Source
+          <select
+            className="crm-lead-search mt-2 block w-full rounded-2xl border border-brand-ink/10 bg-white px-4 py-3 text-sm font-medium normal-case tracking-normal text-brand-ink outline-none transition focus:border-brand-accent"
+            value={activeSourceFilter}
+            onChange={(event) => onSelectSourceFilter(event.target.value)}
+          >
+            {sourceFilterOptions.map((sourceOption) => (
+              <option key={sourceOption.key} value={sourceOption.key}>
+                {sourceOption.label} ({sourceOption.count})
+              </option>
+            ))}
+          </select>
         </label>
         <button
           className="button-secondary w-full justify-center md:w-auto"
