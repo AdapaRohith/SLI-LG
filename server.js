@@ -2,6 +2,7 @@ import express from "express";
 import pkg from "pg";
 import cors from "cors";
 import dotenv from "dotenv";
+import ExcelJS from "exceljs";
 
 dotenv.config();
 
@@ -18,6 +19,30 @@ const pool = new Pool({
   user: process.env.DB_USER,
   password: process.env.DB_PASSWORD,
 });
+
+const leadSelectWithFirstReceivedAt = `
+  SELECT
+    leads.*,
+    COALESCE(first_user_message.created_at, first_message.created_at, leads.created_at) AS first_received_at
+  FROM leads
+  LEFT JOIN LATERAL (
+    SELECT created_at
+    FROM messages
+    WHERE messages.lead_id = leads.id
+      AND messages.role = 'user'
+      AND messages.created_at IS NOT NULL
+    ORDER BY created_at ASC
+    LIMIT 1
+  ) first_user_message ON true
+  LEFT JOIN LATERAL (
+    SELECT created_at
+    FROM messages
+    WHERE messages.lead_id = leads.id
+      AND messages.created_at IS NOT NULL
+    ORDER BY created_at ASC
+    LIMIT 1
+  ) first_message ON true
+`;
 
 
 // =======================
@@ -102,8 +127,8 @@ app.post("/leads", async (req, res) => {
 app.get("/leads", async (req, res) => {
   try {
     const result = await pool.query(`
-      SELECT * FROM leads
-      ORDER BY last_message_at DESC NULLS LAST
+      ${leadSelectWithFirstReceivedAt}
+      ORDER BY leads.last_message_at DESC NULLS LAST
     `);
     res.json(result.rows);
   } catch (err) {
@@ -121,7 +146,7 @@ app.get("/leads/:id", async (req, res) => {
 
   try {
     const lead = await pool.query(
-      `SELECT * FROM leads WHERE id = $1`,
+      `${leadSelectWithFirstReceivedAt} WHERE leads.id = $1`,
       [id]
     );
 
@@ -190,9 +215,9 @@ app.get("/search", async (req, res) => {
 
   try {
     const result = await pool.query(
-      `SELECT * FROM leads
-       WHERE phone ILIKE $1 OR name ILIKE $1
-       ORDER BY last_message_at DESC`,
+      `${leadSelectWithFirstReceivedAt}
+       WHERE leads.phone ILIKE $1 OR leads.name ILIKE $1
+       ORDER BY leads.last_message_at DESC`,
       [`%${q}%`]
     );
 
@@ -200,6 +225,75 @@ app.get("/search", async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Search failed" });
+  }
+});
+
+
+// =======================
+// EXPORT LEADS TO EXCEL
+// =======================
+app.post("/export-leads", async (req, res) => {
+  try {
+    const rows = Array.isArray(req.body) ? req.body : [];
+
+    const workbook = new ExcelJS.Workbook();
+    const sheet = workbook.addWorksheet("Leads");
+
+    const headers = Object.keys(rows[0] || {});
+    const statusHeader = headers.find((header) => header.toLowerCase() === "status");
+    sheet.columns = headers.map((header) => ({ header, key: header, width: 20 }));
+
+    sheet.getRow(1).eachCell((cell) => {
+      cell.font = { bold: true, color: { argb: "FFFFFFFF" } };
+      cell.fill = {
+        type: "pattern",
+        pattern: "solid",
+        fgColor: { argb: "FF1F2937" },
+      };
+    });
+
+    rows.forEach((row, index) => {
+      const excelRow = sheet.addRow(row);
+      const bg = index % 2 === 0 ? "FFF9FAFB" : "FFFFFFFF";
+
+      excelRow.eachCell((cell) => {
+        cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: bg } };
+      });
+
+      if (statusHeader) {
+        const statusCell = excelRow.getCell(statusHeader);
+        const status = String(statusCell.value || "").toLowerCase();
+
+        if (status === "hot") {
+          statusCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFFC7CE" } };
+        } else if (status === "warm") {
+          statusCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFFEB9C" } };
+        } else if (status === "cold") {
+          statusCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFC6EFCE" } };
+        }
+      }
+    });
+
+    if (headers.length > 0) {
+      sheet.autoFilter = {
+        from: { row: 1, column: 1 },
+        to: { row: 1, column: headers.length },
+      };
+    }
+
+    sheet.views = [{ state: "frozen", ySplit: 1 }];
+
+    res.setHeader(
+      "Content-Type",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    );
+    res.setHeader("Content-Disposition", "attachment; filename=leads.xlsx");
+
+    await workbook.xlsx.write(res);
+    res.end();
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to export leads" });
   }
 });
 

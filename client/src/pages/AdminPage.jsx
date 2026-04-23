@@ -224,7 +224,7 @@ export function AdminPage() {
       return []
     }
 
-    return filterLeadsByCreatedAt(filteredLeads, exportDateRange)
+    return filterLeadsByFirstReceivedAt(filteredLeads, exportDateRange)
   }, [exportDateRange, exportDateRangeError, filteredLeads])
 
   function handleLogout() {
@@ -277,7 +277,7 @@ export function AdminPage() {
               chats = detail.messages
                 .map(
                   (message) =>
-                    `[${formatExportDateTime(message.created_at)}] ${
+                    `[${formatExportDate(message.created_at)}] ${
                       message.role === 'user' ? 'Lead' : 'Assistant'
                     }: ${message.message_text}`,
                 )
@@ -303,8 +303,8 @@ export function AdminPage() {
           Locations: formatPreferredLocations(lead.preferred_locations),
           Size: safeText(lead.size_preference, ''),
           Facing: safeText(lead.facing, ''),
-          Created: formatExportDateTime(lead.created_at),
-          Updated: formatExportDateTime(getLastMessageAt(detail?.messages, lead)),
+          Created: formatExportDate(lead.created_at),
+          Updated: formatExportDate(getLastMessageAt(detail?.messages, lead)),
           Chats: chats,
         })
       }
@@ -701,7 +701,7 @@ function ExportControls({
         </button>
       </div>
       <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs font-semibold text-brand-muted">
-        <span>{exportDateRangeError || `${exportLeadsCount} matching created date`}</span>
+        <span>{exportDateRangeError || `${exportLeadsCount} matching first received date`}</span>
         {(exportDateRange.from || exportDateRange.to) && (
           <button
             className="font-bold text-brand-accent transition hover:text-brand-ink"
@@ -744,14 +744,13 @@ function ExportDateField({ label, onChange, value }) {
         onClick={openPicker}
         type="button"
       >
-        {formatDatePickerDisplay(value) || 'Select date and time'}
+        {formatDatePickerDisplay(value) || 'Select date'}
       </button>
       <input
         aria-label={label}
         className="absolute left-4 top-1/2 h-px w-px -translate-y-1/2 opacity-0"
         ref={inputRef}
-        type="datetime-local"
-        step="1"
+        type="date"
         value={value}
         onChange={(event) => onChange(event.target.value)}
       />
@@ -1083,7 +1082,7 @@ function getFirstReceivedAt(messages, lead) {
     }
   }
 
-  return lead?.created_at ?? ''
+  return lead?.first_received_at ?? lead?.created_at ?? ''
 }
 
 function getLastMessageAt(messages, lead) {
@@ -1097,26 +1096,26 @@ function getLastMessageAt(messages, lead) {
   return lead?.last_message_at ?? lead?.updated_at ?? lead?.created_at ?? ''
 }
 
-function filterLeadsByCreatedAt(leads, range) {
+function filterLeadsByFirstReceivedAt(leads, range) {
   const hasRange = Boolean(range.from || range.to)
   if (!hasRange) {
     return leads
   }
 
   const fromTime = parseDateInputTime(range.from)
-  const toTime = parseDateInputTime(range.to)
+  const toTime = parseDateInputTime(range.to, { endOfDay: true })
 
   return leads.filter((lead) => {
-    const createdAt = new Date(lead?.created_at).getTime()
-    if (!Number.isFinite(createdAt)) {
+    const firstReceivedAt = new Date(getFirstReceivedAt(null, lead)).getTime()
+    if (!Number.isFinite(firstReceivedAt)) {
       return false
     }
 
-    if (fromTime !== null && createdAt < fromTime) {
+    if (fromTime !== null && firstReceivedAt < fromTime) {
       return false
     }
 
-    if (toTime !== null && createdAt > toTime) {
+    if (toTime !== null && firstReceivedAt > toTime) {
       return false
     }
 
@@ -1126,29 +1125,46 @@ function filterLeadsByCreatedAt(leads, range) {
 
 function getExportDateRangeError(range) {
   const fromTime = parseDateInputTime(range.from)
-  const toTime = parseDateInputTime(range.to)
+  const toTime = parseDateInputTime(range.to, { endOfDay: true })
 
   if (range.from && fromTime === null) {
-    return 'Enter a valid from timestamp'
+    return 'Enter a valid from date'
   }
 
   if (range.to && toTime === null) {
-    return 'Enter a valid to timestamp'
+    return 'Enter a valid to date'
   }
 
   if (fromTime !== null && toTime !== null && fromTime > toTime) {
-    return 'From timestamp must be before to timestamp'
+    return 'From date must be before to date'
   }
 
   return ''
 }
 
-function parseDateInputTime(value) {
+function parseDateInputTime(value, options = {}) {
   if (!value) {
     return null
   }
 
+  const endOfDay = Boolean(options.endOfDay)
   const trimmedValue = String(value).trim()
+  const dateInputMatch = trimmedValue.match(/^(\d{4})-(\d{2})-(\d{2})$/)
+
+  if (dateInputMatch) {
+    const [, yearValue, monthValue, dayValue] = dateInputMatch
+    const year = Number(yearValue)
+    const monthIndex = Number(monthValue) - 1
+    const day = Number(dayValue)
+    const parsed = new Date(year, monthIndex, day, endOfDay ? 23 : 0, endOfDay ? 59 : 0, endOfDay ? 59 : 0, endOfDay ? 999 : 0)
+
+    if (parsed.getFullYear() !== year || parsed.getMonth() !== monthIndex || parsed.getDate() !== day) {
+      return null
+    }
+
+    return parsed.getTime()
+  }
+
   const customMatch = trimmedValue.match(
     /^(\d{1,2})-([a-z]+)-(\d{4})(?:\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm))?$/i,
   )
@@ -1161,8 +1177,11 @@ function parseDateInputTime(value) {
       return null
     }
 
-    let hours = Number(hourValue ?? 0)
-    const minutes = Number(minuteValue)
+    const hasExplicitTime = hourValue !== undefined
+    let hours = Number(hourValue ?? (endOfDay ? 23 : 0))
+    const minutes = Number(hasExplicitTime ? minuteValue : endOfDay ? 59 : minuteValue)
+    const seconds = hasExplicitTime ? 0 : endOfDay ? 59 : 0
+    const milliseconds = hasExplicitTime ? 0 : endOfDay ? 999 : 0
 
     if (meridiemValue) {
       if (hours < 1 || hours > 12 || minutes < 0 || minutes > 59) {
@@ -1181,7 +1200,7 @@ function parseDateInputTime(value) {
       return null
     }
 
-    const parsed = new Date(Number(yearValue), monthIndex, Number(dayValue), hours, minutes)
+    const parsed = new Date(Number(yearValue), monthIndex, Number(dayValue), hours, minutes, seconds, milliseconds)
     if (
       parsed.getFullYear() !== Number(yearValue) ||
       parsed.getMonth() !== monthIndex ||
@@ -1198,13 +1217,13 @@ function parseDateInputTime(value) {
 }
 
 function getDefaultExportDateRange() {
-  return { from: '', to: getCurrentDateTimeInputValue() }
+  return { from: '', to: getCurrentDateInputValue() }
 }
 
-function getCurrentDateTimeInputValue() {
+function getCurrentDateInputValue() {
   const now = new Date()
   const timezoneOffset = now.getTimezoneOffset() * 60000
-  return new Date(now.getTime() - timezoneOffset).toISOString().slice(0, 19)
+  return new Date(now.getTime() - timezoneOffset).toISOString().slice(0, 10)
 }
 
 function getExportMonthIndex(value) {
@@ -1233,7 +1252,7 @@ function formatExportDate(value) {
     return ''
   }
 
-  const parsed = new Date(value)
+  const parsed = parseExportDateValue(value)
   if (Number.isNaN(parsed.getTime())) {
     return ''
   }
@@ -1241,21 +1260,29 @@ function formatExportDate(value) {
   return formatExportDatePart(parsed)
 }
 
-function formatExportDateTime(value) {
-  if (!value) {
-    return ''
-  }
-
-  const parsed = new Date(value)
-  if (Number.isNaN(parsed.getTime())) {
-    return ''
-  }
-
-  return `${formatExportDatePart(parsed)} ${formatExportTimePart(parsed)}`
+function formatDatePickerDisplay(value) {
+  return formatExportDate(value)
 }
 
-function formatDatePickerDisplay(value) {
-  return formatExportDateTime(value)
+function parseExportDateValue(value) {
+  const trimmedValue = String(value ?? '').trim()
+  const dateInputMatch = trimmedValue.match(/^(\d{4})-(\d{2})-(\d{2})$/)
+
+  if (dateInputMatch) {
+    const [, yearValue, monthValue, dayValue] = dateInputMatch
+    const year = Number(yearValue)
+    const monthIndex = Number(monthValue) - 1
+    const day = Number(dayValue)
+    const parsed = new Date(year, monthIndex, day, 0, 0, 0, 0)
+
+    if (parsed.getFullYear() !== year || parsed.getMonth() !== monthIndex || parsed.getDate() !== day) {
+      return new Date(Number.NaN)
+    }
+
+    return parsed
+  }
+
+  return new Date(value)
 }
 
 function formatExportDatePart(date) {
