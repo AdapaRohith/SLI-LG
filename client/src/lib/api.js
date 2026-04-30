@@ -73,3 +73,25 @@ export async function searchLeads(query) {
 export async function getLeadDetail(leadId) {
   return request(`/leads/${leadId}`)
 }
+
+export async function importLeads(file) {
+  const formData = new FormData();
+  formData.append('file', file);
+  
+  const response = await fetch(`${API_BASE_URL}/import-leads`, {
+    method: 'POST',
+    body: formData,
+    headers: {
+      Accept: 'application/json',
+    },
+  });
+
+  if (!response.ok) {
+    const payload = await response.json().catch(() => ({}));
+    const error = new Error(payload.error ?? 'Failed to import leads');
+    error.status = response.status;
+    throw error;
+  }
+
+  return response.json();
+}

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { getHealth, getLeadDetail, getLeads, searchLeads } from '../lib/api'
+import { getHealth, getLeadDetail, getLeads, searchLeads, importLeads } from '../lib/api'
 import { clearAdminAuthentication } from '../lib/auth'
 
 const statusStyles = {
@@ -31,6 +31,7 @@ export function AdminPage() {
   const [activeTab, setActiveTab] = useState('overview')
   const [isMobileDetailOpen, setIsMobileDetailOpen] = useState(false)
   const [isExporting, setIsExporting] = useState(false)
+  const [isImporting, setIsImporting] = useState(false)
   const [exportMessage, setExportMessage] = useState(null)
   const [exportDateRange, setExportDateRange] = useState(getDefaultExportDateRange)
 
@@ -252,6 +253,26 @@ export function AdminPage() {
     setIsMobileDetailOpen(false)
   }
 
+  async function handleImport(event) {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    setIsImporting(true)
+    try {
+      const result = await importLeads(file)
+      setExportMessage(result.message || 'Imported successfully')
+      setTimeout(() => setExportMessage(null), 5000)
+      setRefreshKey((value) => value + 1)
+    } catch (err) {
+      console.error('Import error:', err)
+      setExportMessage('Import failed: ' + err.message)
+      setTimeout(() => setExportMessage(null), 5000)
+    } finally {
+      setIsImporting(false)
+      event.target.value = ''
+    }
+  }
+
   async function handleExport() {
     if (exportDateRangeError) {
       setExportMessage(exportDateRangeError)
@@ -309,7 +330,7 @@ export function AdminPage() {
         })
       }
 
-      const response = await fetch('https://n8n-bak.avlokai.com/webhook/cc87c364-355f-4cf1-9387-b6589bc009b0', {
+      const response = await fetch('https://n8n-bak.avlokai.com/webhook-test/cc87c364-355f-4cf1-9387-b6589bc009b0', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -344,6 +365,8 @@ export function AdminPage() {
           health={health}
           onExport={handleExport}
           isExporting={isExporting}
+          onImport={handleImport}
+          isImporting={isImporting}
           onExportDateRangeChange={setExportDateRange}
           onLogout={handleLogout}
           onRefresh={() => setRefreshKey((value) => value + 1)}
@@ -404,6 +427,8 @@ function AdminHero({
   health,
   isExporting,
   onExport,
+  isImporting,
+  onImport,
   onExportDateRangeChange,
   onLogout,
   onRefresh,
@@ -445,6 +470,8 @@ function AdminHero({
               exportLeadsCount={exportLeadsCount}
               isExporting={isExporting}
               onExport={onExport}
+              isImporting={isImporting}
+              onImport={onImport}
               onExportDateRangeChange={onExportDateRangeChange}
               onSelectSourceFilter={onSelectSourceFilter}
               sourceFilterOptions={sourceFilterOptions}
@@ -654,6 +681,8 @@ function ExportControls({
   exportLeadsCount,
   isExporting,
   onExport,
+  isImporting,
+  onImport,
   onExportDateRangeChange,
   onSelectSourceFilter,
   sourceFilterOptions,
@@ -691,14 +720,32 @@ function ExportControls({
             ))}
           </select>
         </label>
-        <button
-          className="button-secondary w-full justify-center md:w-auto"
-          onClick={onExport}
-          disabled={isExporting || Boolean(exportDateRangeError) || exportLeadsCount === 0}
-          type="button"
-        >
-          {isExporting ? 'Exporting...' : `Export ${exportLeadsCount} leads`}
-        </button>
+        <div className="flex gap-2 w-full md:w-auto">
+          <button
+            className="button-secondary w-full justify-center md:w-auto"
+            onClick={onExport}
+            disabled={isExporting || Boolean(exportDateRangeError) || exportLeadsCount === 0}
+            type="button"
+          >
+            {isExporting ? 'Exporting...' : `Export ${exportLeadsCount} leads`}
+          </button>
+          <div className="relative w-full md:w-auto">
+            <input
+              type="file"
+              accept=".xlsx"
+              id="import-upload"
+              className="hidden"
+              onChange={onImport}
+              disabled={isImporting}
+            />
+            <label
+              htmlFor="import-upload"
+              className={`button-secondary w-full justify-center md:w-auto cursor-pointer flex items-center ${isImporting ? 'opacity-50 cursor-not-allowed' : ''}`}
+            >
+              {isImporting ? 'Importing...' : 'Import XLSX'}
+            </label>
+          </div>
+        </div>
       </div>
       <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs font-semibold text-brand-muted">
         <span>{exportDateRangeError || `${exportLeadsCount} matching first received date`}</span>
@@ -1291,25 +1338,17 @@ function formatExportDatePart(date) {
   return `${date.getDate()}-${months[date.getMonth()]}-${date.getFullYear()}`
 }
 
-function formatExportTimePart(date) {
-  return new Intl.DateTimeFormat('en-US', {
-    hour: 'numeric',
-    minute: '2-digit',
-    hour12: true,
-  }).format(date)
-}
-
 function formatDateTime(value) {
   if (!value) {
     return 'N/A'
   }
 
-  const parsed = new Date(value)
+  const parsed = parseExportDateValue(value)
   if (Number.isNaN(parsed.getTime())) {
     return 'N/A'
   }
 
-  return `${formatExportDatePart(parsed)} ${formatExportTimePart(parsed)}`
+  return formatExportDatePart(parsed)
 }
 
 function formatShortDate(value) {
@@ -1317,7 +1356,7 @@ function formatShortDate(value) {
     return 'N/A'
   }
 
-  const parsed = new Date(value)
+  const parsed = parseExportDateValue(value)
   if (Number.isNaN(parsed.getTime())) {
     return 'N/A'
   }
