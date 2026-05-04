@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { getHealth, getLeadDetail, getLeads, searchLeads, importLeads } from '../lib/api'
 import { clearAdminAuthentication } from '../lib/auth'
+import * as XLSX from 'xlsx'
 
 const statusStyles = {
   hot: 'bg-red-50 text-red-700 border-red-200',
@@ -291,7 +292,7 @@ export function AdminPage() {
         let detail = null
         let chats = ''
 
-        if ((lead.message_count ?? 0) > 0) {
+        if ((lead.exact_message_count ?? lead.message_count ?? 0) > 0) {
           try {
             detail = await getLeadDetail(lead.id)
             if (detail?.messages?.length > 0) {
@@ -316,31 +317,29 @@ export function AdminPage() {
           Score: lead.score ?? 0,
           Status: getLeadTemperature(lead.score).toUpperCase(),
           Source: formatLeadSource(lead.source),
-          Messages: lead.message_count ?? 0,
-          Escalated: lead.escalated ? 'Yes' : 'No',
-          BudgetMin: lead.budget_min ?? '',
-          BudgetMax: lead.budget_max ?? '',
-          Estimate: lead.budget_estimate ?? '',
-          Locations: formatPreferredLocations(lead.preferred_locations),
-          Size: safeText(lead.size_preference, ''),
-          Facing: safeText(lead.facing, ''),
+          Messages: lead.exact_message_count ?? detail?.lead?.exact_message_count ?? lead.message_count ?? 0,
+          Received: lead.messages_received ?? detail?.lead?.messages_received ?? 0,
+          Sent: lead.messages_sent ?? detail?.lead?.messages_sent ?? 0,
+          Escalated: lead.escalated ?? detail?.lead?.escalated ? 'Yes' : 'No',
+          BudgetMin: lead.budget_min ?? detail?.lead?.budget_min ?? '',
+          BudgetMax: lead.budget_max ?? detail?.lead?.budget_max ?? '',
+          Estimate: lead.budget_estimate ?? detail?.lead?.budget_estimate ?? '',
+          Locations: formatPreferredLocations(lead.preferred_locations ?? detail?.lead?.preferred_locations),
+          Size: safeText(lead.size_preference ?? detail?.lead?.size_preference, ''),
+          Facing: safeText(lead.facing ?? detail?.lead?.facing, ''),
           Created: formatExportDate(lead.created_at),
           Updated: formatExportDate(getLastMessageAt(detail?.messages, lead)),
           Chats: chats,
         })
       }
 
-      const response = await fetch('https://n8n-bak.avlokai.com/webhook-test/cc87c364-355f-4cf1-9387-b6589bc009b0', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ data: payload }),
-      })
+      const worksheet = XLSX.utils.json_to_sheet(payload)
+      const workbook = XLSX.utils.book_new()
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Leads')
+      
+      const dateString = new Date().toISOString().split('T')[0]
+      XLSX.writeFile(workbook, `leads_export_${dateString}.xlsx`)
 
-      if (!response.ok) {
-        throw new Error('Webhook error')
-      }
       setExportMessage('Exported successfully')
       setTimeout(() => setExportMessage(null), 3000)
     } catch (err) {
@@ -379,6 +378,7 @@ export function AdminPage() {
         <div className={`crm-dashboard-grid mt-8 ${isMobileDetailOpen ? 'crm-mobile-detail-open' : ''}`}>
           <LeadSidebar
             activeLeadId={activeLeadId}
+            selectedLead={selectedLead}
             activeFilter={activeFilter}
             activeSourceFilter={activeSourceFilter}
             filteredCount={filteredLeads.length}
@@ -522,6 +522,7 @@ function AdminHero({
 function LeadSidebar({
   activeFilter,
   activeLeadId,
+  selectedLead,
   activeSourceFilter,
   filteredCount,
   leadItemRefs,
@@ -620,7 +621,8 @@ function LeadSidebar({
             {!leadsState.loading && !leadsState.error
           ? visibleLeads.map((lead, index) => {
               const isActive = lead.id === activeLeadId
-              const leadTemperature = getLeadTemperature(lead.score)
+              const displayLead = isActive && selectedLead ? selectedLead : lead
+              const leadTemperature = getLeadTemperature(displayLead.score)
               const badgeClass = statusStyles[leadTemperature] ?? statusStyles.cold
 
               return (
@@ -641,27 +643,28 @@ function LeadSidebar({
                   style={{ '--crm-enter-delay': `${Math.min(index * 35, 280)}ms` }}
                 >
                   <div className="flex items-start gap-3">
-                    <div className="crm-avatar shrink-0">{getInitials(lead.name)}</div>
+                    <div className="crm-avatar shrink-0">{getInitials(displayLead.name)}</div>
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-start justify-between gap-3">
                         <div className="min-w-0">
-                          <p className="truncate font-semibold text-brand-ink">{safeText(lead.name, 'Unknown lead')}</p>
-                          <p className="mt-1 truncate text-sm text-brand-muted">{safeText(lead.phone, 'Phone unavailable')}</p>
+                          <p className="truncate font-semibold text-brand-ink">{safeText(displayLead.name, 'Unknown lead')}</p>
+                          <p className="mt-1 truncate text-sm text-brand-muted">{safeText(displayLead.phone, 'Phone unavailable')}</p>
                         </div>
                         <span className={`rounded-full border px-3 py-1 text-[11px] font-bold uppercase tracking-[0.14em] ${badgeClass}`}>
                           {formatTemperatureLabel(leadTemperature)}
                         </span>
                       </div>
 
-                      <div className="mt-4 grid grid-cols-3 gap-2">
-                        <InlineMetric label="Score" value={lead.score ?? 0} />
-                        <InlineMetric label="Chat" value={lead.message_count ?? 0} />
-                        <InlineMetric label="Seen" value={formatShortDate(lead.last_message_at)} />
+                      <div className="mt-4 grid grid-cols-4 gap-2">
+                        <InlineMetric label="Score" value={displayLead.score ?? 0} />
+                        <InlineMetric label="Received" value={displayLead.messages_received ?? 0} />
+                        <InlineMetric label="Sent" value={displayLead.messages_sent ?? 0} />
+                        <InlineMetric label="Seen" value={formatShortDate(displayLead.last_message_at)} />
                       </div>
 
                       <div className="mt-4 flex flex-wrap items-center justify-between gap-2 text-xs text-brand-muted">
-                        <span>{formatBudgetRange(lead)}</span>
-                        <span className="crm-source-pill">{formatLeadSource(lead.source)}</span>
+                        <span>{formatBudgetRange(displayLead)}</span>
+                        <span className="crm-source-pill">{formatLeadSource(displayLead.source)}</span>
                       </div>
                     </div>
                   </div>
@@ -871,10 +874,11 @@ function LeadWorkspace({
           </div>
         </div>
 
-        <div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+        <div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
           <SummaryChip label="Source" value={formatLeadSource(selectedLead.source)} />
           <SummaryChip label="Escalated" value={selectedLead.escalated ? 'Yes' : 'No'} />
-          <SummaryChip label="Chat" value={selectedLead.message_count ?? 0} />
+          <SummaryChip label="Received" value={selectedLead.messages_received ?? 0} />
+          <SummaryChip label="Sent" value={selectedLead.messages_sent ?? 0} />
           <SummaryChip label="Budget" value={formatBudgetRange(selectedLead)} />
           <SummaryChip label="Last seen" value={formatShortDate(selectedLead.last_message_at)} />
         </div>

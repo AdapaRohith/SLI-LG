@@ -71,7 +71,30 @@ export async function searchLeads(query) {
 }
 
 export async function getLeadDetail(leadId) {
-  return request(`/leads/${leadId}`)
+  const [detail, insights] = await Promise.all([
+    request(`/leads/${leadId}`),
+    request(`/insights/${leadId}`).catch(() => ({}))
+  ]);
+
+  if (detail && detail.lead) {
+    // Merge insights into lead
+    detail.lead = { ...detail.lead, ...insights };
+
+    // If backend doesn't provide exact counts, calculate them from messages
+    if (detail.messages && Array.isArray(detail.messages)) {
+      if (detail.lead.messages_received === undefined) {
+        detail.lead.messages_received = detail.messages.filter(m => m.role === 'user').length;
+      }
+      if (detail.lead.messages_sent === undefined) {
+        detail.lead.messages_sent = detail.messages.filter(m => m.role !== 'user').length;
+      }
+      if (detail.lead.exact_message_count === undefined) {
+        detail.lead.exact_message_count = detail.messages.length;
+      }
+    }
+  }
+
+  return detail;
 }
 
 export async function importLeads(file) {

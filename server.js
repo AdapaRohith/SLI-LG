@@ -28,6 +28,9 @@ pool.query("ALTER TABLE leads ADD COLUMN IF NOT EXISTS imported TEXT DEFAULT 'no
 const leadSelectWithFirstReceivedAt = `
   SELECT
     leads.*,
+    (SELECT COUNT(*) FROM messages WHERE lead_id = leads.id) AS exact_message_count,
+    (SELECT COUNT(*) FROM messages WHERE lead_id = leads.id AND role = 'user') AS messages_received,
+    (SELECT COUNT(*) FROM messages WHERE lead_id = leads.id AND role != 'user') AS messages_sent,
     COALESCE(first_user_message.created_at, first_message.created_at, leads.created_at) AS first_received_at
   FROM leads
   LEFT JOIN LATERAL (
@@ -160,13 +163,37 @@ app.get("/leads", async (req, res) => {
       ${leadSelectWithFirstReceivedAt}
       ORDER BY leads.last_message_at DESC NULLS LAST
     `);
+
+    // Fetch all insights and merge them into the leads
+    const leadIds = result.rows.map(r => r.id);
+    if (leadIds.length > 0) {
+      const insightsResult = await pool.query(
+        `SELECT * FROM lead_insights WHERE lead_id = ANY($1)`,
+        [leadIds]
+      );
+      
+      const insightsMap = {};
+      insightsResult.rows.forEach(row => {
+        // remove overlapping ids from insight row so they don't overwrite lead fields
+        delete row.id;
+        delete row.created_at;
+        delete row.updated_at;
+        insightsMap[row.lead_id] = row;
+      });
+      
+      result.rows.forEach(row => {
+        if (insightsMap[row.id]) {
+          Object.assign(row, insightsMap[row.id]);
+        }
+      });
+    }
+
     res.json(result.rows);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Failed to fetch leads" });
   }
 });
-
 
 // =======================
 // GET SINGLE LEAD + MESSAGES
