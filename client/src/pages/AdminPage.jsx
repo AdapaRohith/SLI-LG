@@ -274,6 +274,48 @@ export function AdminPage() {
     }
   }
 
+  function handleQuickDownload() {
+    const leads = exportLeads
+    if (!leads.length) return
+
+    try {
+      const payload = leads.map((lead) => ({
+        Name: safeText(lead.name, ''),
+        Phone: safeText(lead.phone, ''),
+        Date: formatExportDate(getFirstReceivedAt(null, lead)),
+        Score: lead.score ?? 0,
+        Status: getLeadTemperature(lead.score).toUpperCase(),
+        Source: formatLeadSource(lead.source),
+        Messages: lead.exact_message_count ?? lead.message_count ?? 0,
+        Received: lead.messages_received ?? 0,
+        Sent: lead.messages_sent ?? 0,
+        Escalated: lead.escalated ? 'Yes' : 'No',
+        BudgetMin: lead.budget_min ?? '',
+        BudgetMax: lead.budget_max ?? '',
+        Estimate: lead.budget_estimate ?? '',
+        Locations: formatPreferredLocations(lead.preferred_locations),
+        Size: safeText(lead.size_preference, ''),
+        Facing: safeText(lead.facing, ''),
+        Created: formatExportDate(lead.created_at),
+        Updated: formatExportDate(lead.last_message_at ?? lead.updated_at ?? lead.created_at),
+      }))
+
+      const worksheet = XLSX.utils.json_to_sheet(payload)
+      const workbook = XLSX.utils.book_new()
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Leads')
+
+      const dateString = new Date().toISOString().split('T')[0]
+      XLSX.writeFile(workbook, `leads_quick_${dateString}.xlsx`)
+
+      setExportMessage(`Downloaded ${leads.length} leads`)
+      setTimeout(() => setExportMessage(null), 3000)
+    } catch (err) {
+      console.error('Download failed:', err)
+      setExportMessage('Download failed')
+      setTimeout(() => setExportMessage(null), 3000)
+    }
+  }
+
   async function handleExport() {
     if (exportDateRangeError) {
       setExportMessage(exportDateRangeError)
@@ -366,6 +408,7 @@ export function AdminPage() {
           isExporting={isExporting}
           onImport={handleImport}
           isImporting={isImporting}
+          onQuickDownload={handleQuickDownload}
           onExportDateRangeChange={setExportDateRange}
           onLogout={handleLogout}
           onRefresh={() => setRefreshKey((value) => value + 1)}
@@ -429,6 +472,7 @@ function AdminHero({
   onExport,
   isImporting,
   onImport,
+  onQuickDownload,
   onExportDateRangeChange,
   onLogout,
   onRefresh,
@@ -463,19 +507,6 @@ function AdminHero({
               </button>
             </div>
 
-            <ExportControls
-              activeSourceFilter={activeSourceFilter}
-              exportDateRange={exportDateRange}
-              exportDateRangeError={exportDateRangeError}
-              exportLeadsCount={exportLeadsCount}
-              isExporting={isExporting}
-              onExport={onExport}
-              isImporting={isImporting}
-              onImport={onImport}
-              onExportDateRangeChange={onExportDateRangeChange}
-              onSelectSourceFilter={onSelectSourceFilter}
-              sourceFilterOptions={sourceFilterOptions}
-            />
           </div>
 
           <div className="grid w-full gap-4 sm:grid-cols-2 xl:w-[520px] xl:grid-cols-3">
@@ -513,6 +544,23 @@ function AdminHero({
             <StatCard label="Escalated" value={stats.escalated} accent="text-emerald-600" description="Flagged" />
             <StatCard label="Avg. Score" value={averageScore} accent="text-sky-600" description="Average" />
           </div>
+        </div>
+
+        <div className="w-full">
+          <ExportControls
+            activeSourceFilter={activeSourceFilter}
+            exportDateRange={exportDateRange}
+            exportDateRangeError={exportDateRangeError}
+            exportLeadsCount={exportLeadsCount}
+            isExporting={isExporting}
+            onExport={onExport}
+            isImporting={isImporting}
+            onImport={onImport}
+            onQuickDownload={onQuickDownload}
+            onExportDateRangeChange={onExportDateRangeChange}
+            onSelectSourceFilter={onSelectSourceFilter}
+            sourceFilterOptions={sourceFilterOptions}
+          />
         </div>
       </div>
     </section>
@@ -686,53 +734,66 @@ function ExportControls({
   onExport,
   isImporting,
   onImport,
+  onQuickDownload,
   onExportDateRangeChange,
   onSelectSourceFilter,
   sourceFilterOptions,
 }) {
   return (
     <div className="mt-6 rounded-[24px] border border-brand-ink/8 bg-white/82 p-4 shadow-[0_12px_32px_rgba(15,23,42,0.05)]">
-      <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_auto] md:items-end">
-        <label className="block text-xs font-bold uppercase tracking-[0.16em] text-brand-muted">
-          From
-          <ExportDateField
-            label="From"
-            value={exportDateRange.from}
-            onChange={(value) => onExportDateRangeChange((current) => ({ ...current, from: value }))}
-          />
-        </label>
-        <label className="block text-xs font-bold uppercase tracking-[0.16em] text-brand-muted">
-          To
-          <ExportDateField
-            label="To"
-            value={exportDateRange.to}
-            onChange={(value) => onExportDateRangeChange((current) => ({ ...current, to: value }))}
-          />
-        </label>
-        <label className="block text-xs font-bold uppercase tracking-[0.16em] text-brand-muted">
-          Source
-          <select
-            className="crm-lead-search mt-2 block w-full rounded-2xl border border-brand-ink/10 bg-white px-4 py-3 text-sm font-medium normal-case tracking-normal text-brand-ink outline-none transition focus:border-brand-accent"
-            value={activeSourceFilter}
-            onChange={(event) => onSelectSourceFilter(event.target.value)}
-          >
-            {sourceFilterOptions.map((sourceOption) => (
-              <option key={sourceOption.key} value={sourceOption.key}>
-                {sourceOption.label} ({sourceOption.count})
-              </option>
-            ))}
-          </select>
-        </label>
-        <div className="flex gap-2 w-full md:w-auto">
+      <div className="flex flex-col xl:flex-row xl:items-end xl:justify-between gap-4">
+        <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 w-full xl:max-w-lg">
+          <label className="block text-xs font-bold uppercase tracking-[0.16em] text-brand-muted">
+            From
+            <ExportDateField
+              label="From"
+              value={exportDateRange.from}
+              onChange={(value) => onExportDateRangeChange((current) => ({ ...current, from: value }))}
+            />
+          </label>
+          <label className="block text-xs font-bold uppercase tracking-[0.16em] text-brand-muted">
+            To
+            <ExportDateField
+              label="To"
+              value={exportDateRange.to}
+              onChange={(value) => onExportDateRangeChange((current) => ({ ...current, to: value }))}
+            />
+          </label>
+          <label className="block text-xs font-bold uppercase tracking-[0.16em] text-brand-muted col-span-2 sm:col-span-1">
+            Source
+            <select
+              className="crm-lead-search mt-2 block w-full rounded-2xl border border-brand-ink/10 bg-white px-4 py-3 text-sm font-medium normal-case tracking-normal text-brand-ink outline-none transition focus:border-brand-accent"
+              value={activeSourceFilter}
+              onChange={(event) => onSelectSourceFilter(event.target.value)}
+            >
+              {sourceFilterOptions.map((sourceOption) => (
+                <option key={sourceOption.key} value={sourceOption.key}>
+                  {sourceOption.label} ({sourceOption.count})
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+        <div className="flex flex-wrap gap-2 w-full xl:w-auto shrink-0">
           <button
-            className="button-secondary w-full justify-center md:w-auto"
+            className="button-primary w-full justify-center sm:w-auto"
+            onClick={onQuickDownload}
+            disabled={Boolean(exportDateRangeError) || exportLeadsCount === 0}
+            type="button"
+            title="Instant download — no API calls, no chat history"
+          >
+            ↓ Download XLSX
+          </button>
+          <button
+            className="button-secondary w-full justify-center sm:w-auto"
             onClick={onExport}
             disabled={isExporting || Boolean(exportDateRangeError) || exportLeadsCount === 0}
             type="button"
+            title="Full export with chat history — slower"
           >
-            {isExporting ? 'Exporting...' : `Export ${exportLeadsCount} leads`}
+            {isExporting ? 'Exporting...' : `Export + Chats (${exportLeadsCount})`}
           </button>
-          <div className="relative w-full md:w-auto">
+          <div className="relative w-full sm:w-auto">
             <input
               type="file"
               accept=".xlsx"
@@ -743,7 +804,7 @@ function ExportControls({
             />
             <label
               htmlFor="import-upload"
-              className={`button-secondary w-full justify-center md:w-auto cursor-pointer flex items-center ${isImporting ? 'opacity-50 cursor-not-allowed' : ''}`}
+              className={`button-secondary w-full justify-center sm:w-auto cursor-pointer flex items-center ${isImporting ? 'opacity-50 cursor-not-allowed' : ''}`}
             >
               {isImporting ? 'Importing...' : 'Import XLSX'}
             </label>
