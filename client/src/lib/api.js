@@ -1,4 +1,9 @@
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? 'https://slilg-api.avlokai.com').replace(/\/$/, '')
+const WHATSAPP_API_BASE_URL = (
+  import.meta.env.VITE_WHATSAPP_API_BASE_URL ??
+  (import.meta.env.DEV ? '/wa-api' : 'https://wa-slilg.avlokai.com')
+).replace(/\/$/, '')
+const WHATSAPP_ADMIN_TOKEN = import.meta.env.VITE_WHATSAPP_ADMIN_TOKEN ?? 'SpaceLink@7426'
 
 async function request(path, options = {}) {
   const headers = {
@@ -18,6 +23,37 @@ async function request(path, options = {}) {
   if (!response.ok) {
     const payload = await response.json().catch(() => ({}))
     const error = new Error(payload.message ?? 'Unable to reach the lead API right now.')
+    error.status = response.status
+    throw error
+  }
+
+  const contentType = response.headers.get('content-type') ?? ''
+  if (contentType.includes('application/json')) {
+    return response.json()
+  }
+
+  return response
+}
+
+async function whatsappRequest(path, options = {}) {
+  const headers = {
+    Accept: 'application/json',
+    ...(WHATSAPP_ADMIN_TOKEN ? { Authorization: `Bearer ${WHATSAPP_ADMIN_TOKEN}` } : {}),
+    ...(options.headers ?? {}),
+  }
+
+  if (options.body && !headers['Content-Type']) {
+    headers['Content-Type'] = 'application/json'
+  }
+
+  const response = await fetch(`${WHATSAPP_API_BASE_URL}${path}`, {
+    ...options,
+    headers,
+  })
+
+  if (!response.ok) {
+    const payload = await response.json().catch(() => ({}))
+    const error = new Error(payload.message ?? payload.error ?? 'Unable to reach the WhatsApp API right now.')
     error.status = response.status
     throw error
   }
@@ -50,8 +86,21 @@ export function getApiBaseUrl() {
   return API_BASE_URL
 }
 
+export function getWhatsAppApiBaseUrl() {
+  return WHATSAPP_API_BASE_URL
+}
+
 export async function getHealth() {
   return request('/')
+}
+
+export async function getTemplateJobs(limit = 10) {
+  const payload = await whatsappRequest(`/api/jobs?limit=${encodeURIComponent(limit)}`)
+  return normalizeCollection(payload?.jobs ?? payload)
+}
+
+export async function getTemplateJob(jobId) {
+  return whatsappRequest(`/api/jobs/${encodeURIComponent(jobId)}`)
 }
 
 export async function getLeads() {

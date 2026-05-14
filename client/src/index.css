@@ -1209,6 +1209,24 @@ button.crm-top-stat:hover {
     font-size: 1rem;
   }
 
+  .crm-mobile-admin .crm-template-jobs-panel {
+    flex: 0 0 auto;
+    max-height: 14rem;
+    margin-top: 0.45rem !important;
+    overflow: auto;
+    border-radius: 0.9rem;
+    padding: 0.65rem !important;
+  }
+
+  .crm-mobile-admin .crm-template-jobs-panel h2 {
+    font-size: 1rem;
+  }
+
+  .crm-mobile-admin .crm-template-jobs-panel .crm-inline-metric,
+  .crm-mobile-admin .crm-template-jobs-panel .crm-summary-chip {
+    padding: 0.45rem;
+  }
+
   .crm-mobile-list-shell {
     display: flex;
     min-height: 0;

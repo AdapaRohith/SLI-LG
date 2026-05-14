@@ -16,6 +16,11 @@ The frontend is wired to these GET-only endpoints:
 - `GET /leads/:id` lead plus chat history
 - `GET /search?q=` search leads
 
+The admin dashboard also reads WhatsApp template job status from `http://wa-slilg.avlokai.com`:
+
+- `GET /api/jobs?limit=N` recent template jobs
+- `GET /api/jobs/:id` selected template job summary and sends
+
 ## Frontend behavior
 
 - Landing page is read-only and no longer submits leads
@@ -62,5 +67,7 @@ If your PowerShell environment allows `npm` directly, `npm install` and `npm run
 ## Environment variables
 
 - `VITE_API_BASE_URL` defaults to `https://slilg-api.avlokai.com`
+- `VITE_WHATSAPP_API_BASE_URL` defaults to `http://wa-slilg.avlokai.com`
+- `VITE_WHATSAPP_ADMIN_TOKEN` sends the bearer token required by the WhatsApp job endpoints
 - `VITE_PUBLIC_WHATSAPP_NUMBER` controls the WhatsApp CTA on the landing page
 - `VITE_PUBLIC_CALL_NUMBER` controls the call CTA on the landing page
