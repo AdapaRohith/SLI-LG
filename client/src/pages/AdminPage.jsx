@@ -17,6 +17,8 @@ const EMPTY_DETAIL_STATE = {
   messages: [],
 }
 
+const LEAD_EXPORT_HEADERS = ['created_at', 'updated_at', 'name', 'number', 'location', 'status', 'summary of the message']
+
 export function AdminPage() {
   const navigate = useNavigate()
   const leadItemRefs = useRef(new Map())
@@ -279,28 +281,9 @@ export function AdminPage() {
     if (!leads.length) return
 
     try {
-      const payload = leads.map((lead) => ({
-        Name: safeText(lead.name, ''),
-        Phone: safeText(lead.phone, ''),
-        Date: formatExportDate(getFirstReceivedAt(null, lead)),
-        Score: lead.score ?? 0,
-        Status: getLeadTemperature(lead.score).toUpperCase(),
-        Source: formatLeadSource(lead.source),
-        Messages: lead.exact_message_count ?? lead.message_count ?? 0,
-        Received: lead.messages_received ?? 0,
-        Sent: lead.messages_sent ?? 0,
-        Escalated: lead.escalated ? 'Yes' : 'No',
-        BudgetMin: lead.budget_min ?? '',
-        BudgetMax: lead.budget_max ?? '',
-        Estimate: lead.budget_estimate ?? '',
-        Locations: formatPreferredLocations(lead.preferred_locations),
-        Size: safeText(lead.size_preference, ''),
-        Facing: safeText(lead.facing, ''),
-        Created: formatExportDate(lead.created_at),
-        Updated: formatExportDate(lead.last_message_at ?? lead.updated_at ?? lead.created_at),
-      }))
+      const payload = leads.map((lead) => buildLeadExportRow(lead))
 
-      const worksheet = XLSX.utils.json_to_sheet(payload)
+      const worksheet = XLSX.utils.json_to_sheet(payload, { header: LEAD_EXPORT_HEADERS })
       const workbook = XLSX.utils.book_new()
       XLSX.utils.book_append_sheet(workbook, worksheet, 'Leads')
 
@@ -352,30 +335,10 @@ export function AdminPage() {
           }
         }
 
-        payload.push({
-          Name: safeText(lead.name, ''),
-          Phone: safeText(lead.phone, ''),
-          Date: formatExportDate(getFirstReceivedAt(detail?.messages, lead)),
-          Score: lead.score ?? 0,
-          Status: getLeadTemperature(lead.score).toUpperCase(),
-          Source: formatLeadSource(lead.source),
-          Messages: lead.exact_message_count ?? detail?.lead?.exact_message_count ?? lead.message_count ?? 0,
-          Received: lead.messages_received ?? detail?.lead?.messages_received ?? 0,
-          Sent: lead.messages_sent ?? detail?.lead?.messages_sent ?? 0,
-          Escalated: lead.escalated ?? detail?.lead?.escalated ? 'Yes' : 'No',
-          BudgetMin: lead.budget_min ?? detail?.lead?.budget_min ?? '',
-          BudgetMax: lead.budget_max ?? detail?.lead?.budget_max ?? '',
-          Estimate: lead.budget_estimate ?? detail?.lead?.budget_estimate ?? '',
-          Locations: formatPreferredLocations(lead.preferred_locations ?? detail?.lead?.preferred_locations),
-          Size: safeText(lead.size_preference ?? detail?.lead?.size_preference, ''),
-          Facing: safeText(lead.facing ?? detail?.lead?.facing, ''),
-          Created: formatExportDate(lead.created_at),
-          Updated: formatExportDate(getLastMessageAt(detail?.messages, lead)),
-          Chats: chats,
-        })
+        payload.push(buildLeadExportRow(detail?.lead ?? lead, { messages: detail?.messages, chats }))
       }
 
-      const worksheet = XLSX.utils.json_to_sheet(payload)
+      const worksheet = XLSX.utils.json_to_sheet(payload, { header: LEAD_EXPORT_HEADERS })
       const workbook = XLSX.utils.book_new()
       XLSX.utils.book_append_sheet(workbook, worksheet, 'Leads')
       
@@ -394,67 +357,339 @@ export function AdminPage() {
   }
 
   return (
-    <div className="crm-admin-page shell py-8 sm:py-10">
-      <div className="crm-admin-shell p-4 sm:p-6 lg:p-8">
-        <AdminHero
-          activeFilter={activeFilter}
-          activeSourceFilter={activeSourceFilter}
-          averageScore={averageScore}
-          exportDateRange={exportDateRange}
-          exportDateRangeError={exportDateRangeError}
-          exportLeadsCount={exportLeads.length}
-          health={health}
-          onExport={handleExport}
-          isExporting={isExporting}
-          onImport={handleImport}
-          isImporting={isImporting}
-          onQuickDownload={handleQuickDownload}
-          onExportDateRangeChange={setExportDateRange}
-          onLogout={handleLogout}
-          onRefresh={() => setRefreshKey((value) => value + 1)}
-          onSelectFilter={handleSelectFilter}
-          onSelectSourceFilter={handleSelectSourceFilter}
-          sourceFilterOptions={sourceFilterOptions}
-          stats={stats}
-        />
+    <>
+      <MobileAdminDashboard
+        activeFilter={activeFilter}
+        activeLeadId={activeLeadId}
+        activeSourceFilter={activeSourceFilter}
+        activeTab={activeTab}
+        averageScore={averageScore}
+        detailViewState={detailViewState}
+        exportDateRange={exportDateRange}
+        exportDateRangeError={exportDateRangeError}
+        exportLeadsCount={exportLeads.length}
+        filteredCount={filteredLeads.length}
+        health={health}
+        isExporting={isExporting}
+        isImporting={isImporting}
+        isMobileDetailOpen={isMobileDetailOpen}
+        leadsState={leadsState}
+        onBackToList={handleBackToList}
+        onExport={handleExport}
+        onExportDateRangeChange={setExportDateRange}
+        onImport={handleImport}
+        onLogout={handleLogout}
+        onQuickDownload={handleQuickDownload}
+        onRefresh={() => setRefreshKey((value) => value + 1)}
+        onSelectFilter={handleSelectFilter}
+        onSelectLead={handleSelectLead}
+        onSelectSourceFilter={handleSelectSourceFilter}
+        onSelectTab={setActiveTab}
+        searchQuery={searchQuery}
+        selectedLead={selectedLead}
+        selectedLeadTemperature={selectedLeadTemperature}
+        setSearchQuery={setSearchQuery}
+        showConversation={showConversation}
+        sourceFilterOptions={sourceFilterOptions}
+        stats={stats}
+        visibleLeads={filteredLeads}
+      />
 
-        <div className={`crm-dashboard-grid mt-8 ${isMobileDetailOpen ? 'crm-mobile-detail-open' : ''}`}>
-          <LeadSidebar
-            activeLeadId={activeLeadId}
-            selectedLead={selectedLead}
+      <div className="crm-admin-desktop-layout crm-admin-page shell py-8 sm:py-10">
+        <div className="crm-admin-shell p-4 sm:p-6 lg:p-8">
+          <AdminHero
             activeFilter={activeFilter}
             activeSourceFilter={activeSourceFilter}
-            filteredCount={filteredLeads.length}
-            leadItemRefs={leadItemRefs}
-            leadsState={leadsState}
-            onCloseMobileDetail={handleBackToList}
-            onSelectLead={handleSelectLead}
+            averageScore={averageScore}
+            exportDateRange={exportDateRange}
+            exportDateRangeError={exportDateRangeError}
+            exportLeadsCount={exportLeads.length}
+            health={health}
+            onExport={handleExport}
+            isExporting={isExporting}
+            onImport={handleImport}
+            isImporting={isImporting}
+            onQuickDownload={handleQuickDownload}
+            onExportDateRangeChange={setExportDateRange}
+            onLogout={handleLogout}
+            onRefresh={() => setRefreshKey((value) => value + 1)}
+            onSelectFilter={handleSelectFilter}
             onSelectSourceFilter={handleSelectSourceFilter}
-            searchQuery={searchQuery}
-            setActiveFilter={handleSelectFilter}
-            setSearchQuery={setSearchQuery}
             sourceFilterOptions={sourceFilterOptions}
             stats={stats}
-            visibleLeads={filteredLeads}
           />
 
-          <LeadWorkspace
-            conversationSectionRef={conversationSectionRef}
-            detailViewState={detailViewState}
-            onBackToList={handleBackToList}
-            onSelectTab={setActiveTab}
-            selectedLead={selectedLead}
-            selectedLeadTemperature={selectedLeadTemperature}
-            showConversation={showConversation}
-            activeTab={activeTab}
-          />
+          <div className={`crm-dashboard-grid mt-8 ${isMobileDetailOpen ? 'crm-mobile-detail-open' : ''}`}>
+            <LeadSidebar
+              activeLeadId={activeLeadId}
+              selectedLead={selectedLead}
+              activeFilter={activeFilter}
+              activeSourceFilter={activeSourceFilter}
+              filteredCount={filteredLeads.length}
+              leadItemRefs={leadItemRefs}
+              leadsState={leadsState}
+              onCloseMobileDetail={handleBackToList}
+              onSelectLead={handleSelectLead}
+              onSelectSourceFilter={handleSelectSourceFilter}
+              searchQuery={searchQuery}
+              setActiveFilter={handleSelectFilter}
+              setSearchQuery={setSearchQuery}
+              sourceFilterOptions={sourceFilterOptions}
+              stats={stats}
+              visibleLeads={filteredLeads}
+            />
+
+            <LeadWorkspace
+              conversationSectionRef={conversationSectionRef}
+              detailViewState={detailViewState}
+              onBackToList={handleBackToList}
+              onSelectTab={setActiveTab}
+              selectedLead={selectedLead}
+              selectedLeadTemperature={selectedLeadTemperature}
+              showConversation={showConversation}
+              activeTab={activeTab}
+            />
+          </div>
         </div>
+
+        {exportMessage && (
+          <div className="fixed bottom-6 right-6 z-50 rounded-2xl bg-brand-ink px-6 py-4 text-sm font-medium text-white shadow-xl">
+            {exportMessage}
+          </div>
+        )}
       </div>
+    </>
+  )
+}
 
-      {exportMessage && (
-        <div className="fixed bottom-6 right-6 z-50 rounded-2xl bg-brand-ink px-6 py-4 text-sm font-medium text-white shadow-xl">
-          {exportMessage}
-        </div>
+function MobileAdminDashboard({
+  activeFilter,
+  activeLeadId,
+  activeSourceFilter,
+  activeTab,
+  averageScore,
+  detailViewState,
+  exportDateRange,
+  exportDateRangeError,
+  exportLeadsCount,
+  filteredCount,
+  health,
+  isExporting,
+  isImporting,
+  isMobileDetailOpen,
+  leadsState,
+  onBackToList,
+  onExport,
+  onExportDateRangeChange,
+  onImport,
+  onLogout,
+  onQuickDownload,
+  onRefresh,
+  onSelectFilter,
+  onSelectLead,
+  onSelectSourceFilter,
+  onSelectTab,
+  searchQuery,
+  selectedLead,
+  selectedLeadTemperature,
+  setSearchQuery,
+  showConversation,
+  sourceFilterOptions,
+  stats,
+  visibleLeads,
+}) {
+  const filters = [
+    { key: 'all', label: 'All', count: leadsState.items.length },
+    { key: 'hot', label: 'Priority', count: stats.hot },
+    { key: 'warm', label: 'Active', count: stats.warm },
+    { key: 'cold', label: 'Others', count: stats.cold },
+  ]
+  const leadPhone = normalizePhoneNumber(selectedLead?.phone)
+  const whatsappLink = leadPhone ? `https://wa.me/${leadPhone}` : ''
+
+  return (
+    <div className="crm-mobile-admin">
+      {!isMobileDetailOpen ? (
+        <>
+          <header className="crm-mobile-admin-top">
+            <div>
+              <p>Workspace</p>
+              <h1>Leads</h1>
+            </div>
+            <div className="crm-mobile-admin-actions">
+              <HealthBadge health={health} />
+              <button type="button" onClick={onRefresh}>Refresh</button>
+              <button type="button" onClick={onLogout}>Sign out</button>
+            </div>
+          </header>
+
+          <section className="crm-mobile-export">
+            <div className="crm-mobile-export-dates">
+              <label>
+                From
+                <ExportDateField
+                  label="From"
+                  value={exportDateRange.from}
+                  onChange={(value) => onExportDateRangeChange((current) => ({ ...current, from: value }))}
+                />
+              </label>
+              <label>
+                To
+                <ExportDateField
+                  label="To"
+                  value={exportDateRange.to}
+                  onChange={(value) => onExportDateRangeChange((current) => ({ ...current, to: value }))}
+                />
+              </label>
+              <label className="crm-mobile-source-field">
+                Source
+                <select value={activeSourceFilter} onChange={(event) => onSelectSourceFilter(event.target.value)}>
+                  {sourceFilterOptions.map((sourceOption) => (
+                    <option key={sourceOption.key} value={sourceOption.key}>
+                      {sourceOption.label} ({sourceOption.count})
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+            <div className="crm-mobile-export-actions">
+              <button type="button" onClick={onQuickDownload} disabled={Boolean(exportDateRangeError) || exportLeadsCount === 0}>
+                Download XLSX
+              </button>
+              <button type="button" onClick={onExport} disabled={isExporting || Boolean(exportDateRangeError) || exportLeadsCount === 0}>
+                {isExporting ? 'Exporting...' : `Export + Chats (${exportLeadsCount})`}
+              </button>
+              <input id="mobile-import-upload" type="file" accept=".xlsx" className="hidden" onChange={onImport} disabled={isImporting} />
+              <label htmlFor="mobile-import-upload">{isImporting ? 'Importing...' : 'Import XLSX'}</label>
+            </div>
+            <p>{exportDateRangeError || `${exportLeadsCount} matching first received date`}</p>
+          </section>
+
+          <section className="crm-mobile-stats">
+            <button type="button" className={activeFilter === 'all' ? 'active' : ''} onClick={() => onSelectFilter('all')}><span>All</span><strong>{stats.total}</strong></button>
+            <button type="button" className={activeFilter === 'hot' ? 'active' : ''} onClick={() => onSelectFilter('hot')}><span>Priority</span><strong>{stats.hot}</strong></button>
+            <button type="button" className={activeFilter === 'warm' ? 'active' : ''} onClick={() => onSelectFilter('warm')}><span>Active</span><strong>{stats.warm}</strong></button>
+            <button type="button" className={activeFilter === 'cold' ? 'active' : ''} onClick={() => onSelectFilter('cold')}><span>Others</span><strong>{stats.cold}</strong></button>
+            <div><span>Escalated</span><strong>{stats.escalated}</strong></div>
+            <div><span>Avg</span><strong>{averageScore}</strong></div>
+          </section>
+
+          <section className="crm-mobile-list-shell">
+            <div className="crm-mobile-list-tools">
+              <div className="crm-mobile-list-title">
+                <div>
+                  <span>People</span>
+                  <h2>Lead list</h2>
+                </div>
+                <strong>{filteredCount}</strong>
+              </div>
+              <input value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="Search name or number" />
+              <div className="crm-mobile-filter-row">
+                {filters.map((filterOption) => (
+                  <button key={filterOption.key} type="button" className={activeFilter === filterOption.key ? 'active' : ''} onClick={() => onSelectFilter(filterOption.key)}>
+                    {filterOption.label} <span>{filterOption.count}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="crm-mobile-lead-list">
+              {leadsState.loading ? <EmptyState message="Loading..." /> : null}
+              {!leadsState.loading && leadsState.error ? <ErrorState message={leadsState.error} /> : null}
+              {!leadsState.loading && !leadsState.error && visibleLeads.length === 0 ? <EmptyState message={searchQuery.trim() ? 'No matches' : 'No leads'} /> : null}
+              {!leadsState.loading && !leadsState.error
+                ? visibleLeads.map((lead) => {
+                    const displayLead = lead.id === activeLeadId && selectedLead ? selectedLead : lead
+                    const leadTemperature = getLeadTemperature(displayLead.score)
+                    return (
+                      <button key={lead.id} type="button" className="crm-mobile-lead-row" onClick={() => onSelectLead(lead.id)}>
+                        <div className="crm-avatar">{getInitials(displayLead.name)}</div>
+                        <div>
+                          <div className="crm-mobile-lead-main">
+                            <strong>{safeText(displayLead.name, 'Unknown lead')}</strong>
+                            <span className={statusStyles[leadTemperature] ?? statusStyles.cold}>{formatTemperatureLabel(leadTemperature)}</span>
+                          </div>
+                          <p>{safeText(displayLead.phone, 'Phone unavailable')}</p>
+                          <div className="crm-mobile-lead-metrics">
+                            <span>Score {displayLead.score ?? 0}</span>
+                            <span>In {displayLead.messages_received ?? 0}</span>
+                            <span>Out {displayLead.messages_sent ?? 0}</span>
+                            <span>{formatShortDate(displayLead.last_message_at)}</span>
+                          </div>
+                          <div className="crm-mobile-lead-meta">
+                            <span>{formatBudgetRange(displayLead)}</span>
+                            <span>{formatLeadSource(displayLead.source)}</span>
+                          </div>
+                        </div>
+                      </button>
+                    )
+                  })
+                : null}
+            </div>
+          </section>
+        </>
+      ) : selectedLead ? (
+        <>
+          <header className="crm-mobile-detail-top">
+            <button type="button" onClick={onBackToList}>Back</button>
+            <div className="crm-avatar crm-avatar-lg">{getInitials(selectedLead.name)}</div>
+            <div>
+              <h1>{safeText(selectedLead.name, 'Unknown lead')}</h1>
+              <p>{safeText(selectedLead.phone, 'Unavailable')}</p>
+            </div>
+            <span className={statusStyles[selectedLeadTemperature] ?? statusStyles.cold}>{formatTemperatureLabel(selectedLeadTemperature)}</span>
+          </header>
+
+          <div className="crm-mobile-detail-actions">
+            {leadPhone ? <a href={`tel:${leadPhone}`}>Call</a> : null}
+            {whatsappLink ? <a href={whatsappLink} rel="noreferrer" target="_blank">WhatsApp</a> : null}
+          </div>
+
+          <div className="crm-mobile-detail-summary">
+            <SummaryChip label="Source" value={formatLeadSource(selectedLead.source)} />
+            <SummaryChip label="Escalated" value={selectedLead.escalated ? 'Yes' : 'No'} />
+            <SummaryChip label="Received" value={selectedLead.messages_received ?? 0} />
+            <SummaryChip label="Sent" value={selectedLead.messages_sent ?? 0} />
+            <SummaryChip label="Budget" value={formatBudgetRange(selectedLead)} />
+            <SummaryChip label="Last seen" value={formatShortDate(selectedLead.last_message_at)} />
+          </div>
+
+          <div className="crm-mobile-tabs">
+            <button type="button" className={activeTab === 'overview' ? 'active' : ''} onClick={() => onSelectTab('overview')}>Overview</button>
+            <button type="button" className={activeTab === 'chat' ? 'active' : ''} onClick={() => onSelectTab('chat')}>Chat {detailViewState.messages.length}</button>
+          </div>
+
+          <main className="crm-mobile-detail-scroll">
+            {detailViewState.loading ? <EmptyState message="Loading..." /> : null}
+            {detailViewState.error ? <ErrorState message={detailViewState.error} /> : null}
+            {!showConversation ? (
+              <div className="crm-mobile-detail-grid">
+                <DetailCard label="Name" value={safeText(selectedLead.name, 'Unknown lead')} />
+                <DetailCard label="Phone" value={safeText(selectedLead.phone, 'Unavailable')} />
+                <DetailCard label="Source" value={formatLeadSource(selectedLead.source)} />
+                <DetailCard label="Status" value={formatTemperatureLabel(selectedLeadTemperature)} />
+                <DetailCard label="Score" value={selectedLead.score ?? 0} />
+                <DetailCard label="Budget" value={formatBudgetRange(selectedLead)} />
+                <DetailCard label="Preferred Locations" value={formatPreferredLocations(selectedLead.preferred_locations)} />
+                <DetailCard label="Size Preference" value={safeText(selectedLead.size_preference, 'Not captured')} />
+                <DetailCard label="Facing" value={safeText(selectedLead.facing, 'Not captured')} />
+                <DetailCard label="Updated" value={formatDateTime(selectedLead.updated_at ?? selectedLead.created_at)} />
+              </div>
+            ) : (
+              <div className="crm-mobile-chat-list">
+                {detailViewState.messages.length === 0 ? <p>No chat yet.</p> : null}
+                {detailViewState.messages.map((message) => (
+                  <article key={message.id} className="crm-mobile-chat-message">
+                    <div><strong>{message.role === 'user' ? 'Lead' : 'Assistant'}</strong><span>{formatDateTime(message.created_at)}</span></div>
+                    <p>{safeText(message.message_text, '[Empty message]')}</p>
+                  </article>
+                ))}
+              </div>
+            )}
+          </main>
+        </>
+      ) : (
+        <EmptyState message="No lead selected" />
       )}
     </div>
   )
@@ -487,14 +722,14 @@ function AdminHero({
         <div className="crm-admin-orb crm-admin-orb-primary" />
         <div className="crm-admin-orb crm-admin-orb-secondary" />
 
-        <div className="relative flex flex-wrap items-start justify-between gap-6">
-          <div className="max-w-3xl">
+        <div className="crm-admin-titlebar relative flex flex-wrap items-start justify-between gap-6">
+          <div className="crm-admin-titlecopy max-w-3xl">
             <p className="text-kicker">Workspace</p>
             <h1 className="mt-3 font-display text-4xl font-bold tracking-tight text-brand-ink sm:text-5xl">
               Leads
             </h1>
 
-            <div className="mt-6 flex flex-wrap items-center gap-3">
+            <div className="crm-admin-actions mt-6 flex flex-wrap items-center gap-3">
               <HealthBadge health={health} />
               <button className="button-secondary" onClick={onRefresh} type="button">
                 Refresh
@@ -509,7 +744,7 @@ function AdminHero({
 
           </div>
 
-          <div className="grid w-full gap-4 sm:grid-cols-2 xl:w-[520px] xl:grid-cols-3">
+          <div className="crm-admin-stats grid w-full gap-4 sm:grid-cols-2 xl:w-[520px] xl:grid-cols-3">
             <StatCard
               label="All"
               value={stats.total}
@@ -740,7 +975,7 @@ function ExportControls({
   sourceFilterOptions,
 }) {
   return (
-    <div className="mt-6 rounded-[24px] border border-brand-ink/8 bg-white/82 p-4 shadow-[0_12px_32px_rgba(15,23,42,0.05)]">
+    <div className="crm-export-card mt-6 rounded-[24px] border border-brand-ink/8 bg-white/82 p-4 shadow-[0_12px_32px_rgba(15,23,42,0.05)]">
       <div className="flex flex-col xl:flex-row xl:items-end xl:justify-between gap-4">
         <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 w-full xl:max-w-lg">
           <label className="block text-xs font-bold uppercase tracking-[0.16em] text-brand-muted">
@@ -903,7 +1138,7 @@ function LeadWorkspace({
                 </button>
               </div>
               <div className="flex flex-wrap items-center gap-2">
-                <h2 className="font-display text-3xl font-bold text-brand-ink">{safeText(selectedLead.name, 'Unknown lead')}</h2>
+                <h2 className="crm-lead-title font-display text-3xl font-bold text-brand-ink">{safeText(selectedLead.name, 'Unknown lead')}</h2>
                 <span
                   className={`rounded-full border px-3 py-1 text-xs font-bold uppercase tracking-[0.14em] ${
                     statusStyles[selectedLeadTemperature] ?? statusStyles.cold
@@ -1139,6 +1374,42 @@ function formatPreferredLocations(value) {
   }
 
   return safeText(value, 'Manikonda')
+}
+
+function buildLeadExportRow(lead, options = {}) {
+  const messages = Array.isArray(options.messages) ? options.messages : []
+
+  return {
+    created_at: formatExportDate(lead?.created_at),
+    updated_at: formatExportDate(lead?.updated_at ?? getLastMessageAt(messages, lead)),
+    name: safeText(lead?.name, ''),
+    number: safeText(lead?.phone ?? lead?.number, ''),
+    location: formatPreferredLocations(lead?.preferred_locations ?? lead?.location),
+    status: getLeadTemperature(lead?.score),
+    'summary of the message': getMessageSummary(lead, messages, options.chats),
+  }
+}
+
+function getMessageSummary(lead, messages, chats) {
+  const directSummary = [
+    lead?.message_summary,
+    lead?.summary_of_the_message,
+    lead?.conversation_summary,
+    lead?.chat_summary,
+    lead?.summary,
+    lead?.last_message_summary,
+  ].find((value) => safeText(value, ''))
+
+  if (directSummary) {
+    return safeText(directSummary, '')
+  }
+
+  const messageText = messages
+    .map((message) => safeText(message?.message_text ?? message?.text ?? message?.body, ''))
+    .filter(Boolean)
+    .join(' ')
+
+  return safeText(messageText || chats, '')
 }
 
 function safeText(value, fallback) {

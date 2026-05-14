@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//c/Users/paran/.claude/plugins/cache/ui-ux-pro-max-skill/ui-ux-pro-max/2.5.0/.claude/skills/ui-ux-pro-max/**)",
+      "Bash(python scripts/search.py \"real estate property luxury service landing page light theme\" --design-system -p \"SpaceLink Infra\" -f markdown)",
+      "Bash(python scripts/search.py \"real estate property luxury service light theme mobile app\" --design-system -p \"SpaceLink Infra\" -f markdown)",
+      "Bash(npm run *)"
+    ]
+  }
+}
