@@ -1,4 +1,7 @@
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? 'https://slilg-api.avlokai.com').replace(/\/$/, '')
+const API_BASE_URL = (
+  import.meta.env.VITE_API_BASE_URL ??
+  (import.meta.env.DEV ? '/slilg-api' : 'https://slilg-api.avlokai.com')
+).replace(/\/$/, '')
 const WHATSAPP_API_BASE_URL = (
   import.meta.env.VITE_WHATSAPP_API_BASE_URL ??
   (import.meta.env.DEV ? '/wa-api' : 'https://wa-slilg.avlokai.com')

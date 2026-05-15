@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { getHealth, getLeadDetail, getLeads, getTemplateJob, getTemplateJobs, searchLeads, importLeads } from '../lib/api'
+import { getHealth, getLeadDetail, getLeads, searchLeads, importLeads } from '../lib/api'
 import { clearAdminAuthentication } from '../lib/auth'
 import * as XLSX from 'xlsx'
+import WhatsAppDrawer from '../whatsapp-crm/WhatsAppDrawer'
 
 const statusStyles = {
   hot: 'bg-red-50 text-red-700 border-red-200',
@@ -18,7 +19,6 @@ const EMPTY_DETAIL_STATE = {
 }
 
 const LEAD_EXPORT_HEADERS = ['created_at', 'updated_at', 'name', 'number', 'location', 'status', 'summary of the message']
-const TEMPLATE_JOBS_LIMIT = 10
 
 export function AdminPage() {
   const navigate = useNavigate()
@@ -38,9 +38,6 @@ export function AdminPage() {
   const [isImporting, setIsImporting] = useState(false)
   const [exportMessage, setExportMessage] = useState(null)
   const [exportDateRange, setExportDateRange] = useState(getDefaultExportDateRange)
-  const [templateJobsState, setTemplateJobsState] = useState({ loading: true, error: '', items: [] })
-  const [selectedTemplateJobId, setSelectedTemplateJobId] = useState('')
-  const [templateJobDetailState, setTemplateJobDetailState] = useState({ loading: false, error: '', detail: null })
 
   useEffect(() => {
     let ignore = false
@@ -105,78 +102,6 @@ export function AdminPage() {
     }
   }, [refreshKey, searchQuery])
 
-  useEffect(() => {
-    let ignore = false
-
-    async function loadTemplateJobs() {
-      setTemplateJobsState((current) => ({ ...current, loading: true, error: '' }))
-
-      try {
-        const items = await getTemplateJobs(TEMPLATE_JOBS_LIMIT)
-
-        if (!ignore) {
-          setTemplateJobsState({ loading: false, error: '', items })
-          setSelectedTemplateJobId((currentId) => {
-            if (currentId && items.some((job) => String(job.id) === String(currentId))) {
-              return currentId
-            }
-
-            return items[0]?.id ? String(items[0].id) : ''
-          })
-        }
-      } catch (error) {
-        if (!ignore) {
-          setTemplateJobsState({
-            loading: false,
-            error: error.message ?? 'Unable to load template jobs.',
-            items: [],
-          })
-          setSelectedTemplateJobId('')
-        }
-      }
-    }
-
-    loadTemplateJobs()
-
-    return () => {
-      ignore = true
-    }
-  }, [refreshKey])
-
-  useEffect(() => {
-    if (!selectedTemplateJobId) {
-      setTemplateJobDetailState({ loading: false, error: '', detail: null })
-      return
-    }
-
-    let ignore = false
-
-    async function loadTemplateJobDetail() {
-      setTemplateJobDetailState({ loading: true, error: '', detail: null })
-
-      try {
-        const detail = await getTemplateJob(selectedTemplateJobId)
-
-        if (!ignore) {
-          setTemplateJobDetailState({ loading: false, error: '', detail })
-        }
-      } catch (error) {
-        if (!ignore) {
-          setTemplateJobDetailState({
-            loading: false,
-            error: error.message ?? 'Unable to load template job details.',
-            detail: null,
-          })
-        }
-      }
-    }
-
-    loadTemplateJobDetail()
-
-    return () => {
-      ignore = true
-    }
-  }, [selectedTemplateJobId, refreshKey])
 
   const stats = useMemo(() => {
     return leadsState.items.reduce(
@@ -469,10 +394,6 @@ export function AdminPage() {
         showConversation={showConversation}
         sourceFilterOptions={sourceFilterOptions}
         stats={stats}
-        templateJobDetailState={templateJobDetailState}
-        templateJobsState={templateJobsState}
-        selectedTemplateJobId={selectedTemplateJobId}
-        onSelectTemplateJob={setSelectedTemplateJobId}
         visibleLeads={filteredLeads}
       />
 
@@ -498,13 +419,6 @@ export function AdminPage() {
             onSelectSourceFilter={handleSelectSourceFilter}
             sourceFilterOptions={sourceFilterOptions}
             stats={stats}
-          />
-
-          <TemplateJobsPanel
-            detailState={templateJobDetailState}
-            jobsState={templateJobsState}
-            onSelectJob={setSelectedTemplateJobId}
-            selectedJobId={selectedTemplateJobId}
           />
 
           <div className={`crm-dashboard-grid mt-8 ${isMobileDetailOpen ? 'crm-mobile-detail-open' : ''}`}>
@@ -584,10 +498,6 @@ function MobileAdminDashboard({
   showConversation,
   sourceFilterOptions,
   stats,
-  templateJobDetailState,
-  templateJobsState,
-  selectedTemplateJobId,
-  onSelectTemplateJob,
   visibleLeads,
 }) {
   const filters = [
@@ -665,13 +575,6 @@ function MobileAdminDashboard({
             <div><span>Escalated</span><strong>{stats.escalated}</strong></div>
             <div><span>Avg</span><strong>{averageScore}</strong></div>
           </section>
-
-          <TemplateJobsPanel
-            detailState={templateJobDetailState}
-            jobsState={templateJobsState}
-            onSelectJob={onSelectTemplateJob}
-            selectedJobId={selectedTemplateJobId}
-          />
 
           <section className="crm-mobile-list-shell">
             <div className="crm-mobile-list-tools">
@@ -1213,6 +1116,8 @@ function LeadWorkspace({
   selectedLeadTemperature,
   showConversation,
 }) {
+  const [chatOpen, setChatOpen] = useState(false)
+
   if (detailViewState.error && !selectedLead) {
     return <ErrorState message={detailViewState.error} />
   }
@@ -1223,6 +1128,10 @@ function LeadWorkspace({
 
   const leadPhone = normalizePhoneNumber(selectedLead.phone)
   const whatsappLink = leadPhone ? `https://wa.me/${leadPhone}` : ''
+  // SLI-LG stores last 10 digits; WhatsApp CRM expects E.164 (+91XXXXXXXXXX)
+  const crmPhone = leadPhone
+    ? leadPhone.length === 10 ? `+91${leadPhone}` : `+${leadPhone}`
+    : null
 
   return (
     <article className="crm-admin-panel crm-workspace-panel crm-fade-up crm-fade-up-delay-2 overflow-hidden">
@@ -1258,6 +1167,15 @@ function LeadWorkspace({
                   <a className="button-secondary" href={whatsappLink} rel="noreferrer" target="_blank">
                     WhatsApp
                   </a>
+                ) : null}
+                {crmPhone ? (
+                  <button
+                    className="button-secondary"
+                    type="button"
+                    onClick={() => setChatOpen(true)}
+                  >
+                    Chat
+                  </button>
                 ) : null}
               </div>
             </div>
@@ -1354,6 +1272,13 @@ function LeadWorkspace({
           </div>
         )}
       </div>
+
+      <WhatsAppDrawer
+        phone={crmPhone}
+        customerName={selectedLead.name || ''}
+        open={chatOpen}
+        onClose={() => setChatOpen(false)}
+      />
     </article>
   )
 }
@@ -1370,129 +1295,6 @@ function HealthBadge({ health }) {
   return <div className="rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-700">Online</div>
 }
 
-function TemplateJobsPanel({ detailState, jobsState, onSelectJob, selectedJobId }) {
-  const selectedJob = detailState.detail?.job ?? jobsState.items.find((job) => String(job.id) === String(selectedJobId)) ?? null
-  const summary = detailState.detail?.summary ?? selectedJob ?? {}
-  const sends = Array.isArray(detailState.detail?.sends) ? detailState.detail.sends : []
-
-  return (
-    <section className="crm-template-jobs-panel crm-admin-panel crm-fade-up crm-fade-up-delay-1 relative mt-8 p-5 overflow-hidden">
-      <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-20">
-        <div className="border-8 border-red-600 px-12 py-6 rounded-lg bg-white/5">
-          <span className="text-5xl font-black text-red-600 text-center leading-tight block whitespace-nowrap">
-            UNDER DEVELOPMENT
-          </span>
-        </div>
-      </div>
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <p className="text-xs font-bold uppercase tracking-[0.18em] text-brand-muted">WhatsApp</p>
-          <h2 className="mt-2 font-display text-2xl font-bold text-brand-ink">Template jobs</h2>
-        </div>
-        <div className="rounded-full border border-brand-accent/15 bg-brand-soft px-3 py-2 text-xs font-semibold text-brand-ink">
-          {jobsState.items.length} recent
-        </div>
-      </div>
-
-      <div className="mt-5 grid gap-5 xl:grid-cols-[0.95fr_1.3fr]">
-        <div className="space-y-3">
-          {jobsState.loading ? <EmptyState message="Loading template jobs..." /> : null}
-          {!jobsState.loading && jobsState.error ? <ErrorState message={jobsState.error} /> : null}
-          {!jobsState.loading && !jobsState.error && jobsState.items.length === 0 ? <EmptyState message="No template jobs" /> : null}
-          {!jobsState.loading && !jobsState.error
-            ? jobsState.items.map((job) => {
-                const isActive = String(job.id) === String(selectedJobId)
-
-                return (
-                  <button
-                    className={`w-full rounded-[24px] border p-4 text-left transition ${
-                      isActive ? 'border-brand-accent/40 bg-brand-soft/80' : 'border-brand-ink/10 bg-white/88 hover:border-brand-accent/25'
-                    }`}
-                    key={job.id}
-                    onClick={() => onSelectJob(String(job.id))}
-                    type="button"
-                  >
-                    <div className="flex flex-wrap items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="truncate font-semibold text-brand-ink">{safeText(job.template_name, 'Unnamed template')}</p>
-                        <p className="mt-1 text-sm text-brand-muted">{safeText(job.language_code, 'Language unavailable')}</p>
-                      </div>
-                      <span className="rounded-full border border-brand-ink/10 bg-white px-3 py-1 text-xs font-bold text-brand-ink">
-                        {formatWholeNumber(job.total)}
-                      </span>
-                    </div>
-                    <div className="mt-4 grid grid-cols-4 gap-2">
-                      <InlineMetric label="Delivered" value={formatWholeNumber(job.delivered)} />
-                      <InlineMetric label="Read" value={formatWholeNumber(job.read)} />
-                      <InlineMetric label="Failed" value={formatWholeNumber(job.failed)} />
-                      <InlineMetric label="Pending" value={formatWholeNumber(job.pending)} />
-                    </div>
-                    <p className="mt-3 text-xs font-medium text-brand-muted">{formatDateTime(job.created_at)}</p>
-                  </button>
-                )
-              })
-            : null}
-        </div>
-
-        <div className="rounded-[24px] border border-brand-ink/8 bg-slate-50/80 p-4">
-          {detailState.loading ? <EmptyState message="Loading job details..." /> : null}
-          {!detailState.loading && detailState.error ? <ErrorState message={detailState.error} /> : null}
-          {!detailState.loading && !detailState.error && !selectedJob ? <EmptyState message="Select a template job" /> : null}
-
-          {!detailState.loading && !detailState.error && selectedJob ? (
-            <div>
-              <div className="flex flex-wrap items-start justify-between gap-4">
-                <div>
-                  <p className="text-xs font-bold uppercase tracking-[0.18em] text-brand-muted">Selected job</p>
-                  <h3 className="mt-2 font-display text-2xl font-bold text-brand-ink">{safeText(selectedJob.template_name, 'Unnamed template')}</h3>
-                  <p className="mt-1 text-sm font-medium text-brand-muted">{formatDateTime(selectedJob.created_at)}</p>
-                </div>
-                <span className="rounded-full border border-brand-ink/10 bg-white px-3 py-2 text-xs font-bold text-brand-ink">
-                  {safeText(selectedJob.language_code, 'N/A')}
-                </span>
-              </div>
-
-              <div className="mt-5 grid gap-3 sm:grid-cols-3 xl:grid-cols-6">
-                <SummaryChip label="Queued" value={formatWholeNumber(summary.queued)} />
-                <SummaryChip label="Accepted" value={formatWholeNumber(summary.accepted)} />
-                <SummaryChip label="Sent" value={formatWholeNumber(summary.sent)} />
-                <SummaryChip label="Delivered" value={formatWholeNumber(summary.delivered)} />
-                <SummaryChip label="Read" value={formatWholeNumber(summary.read)} />
-                <SummaryChip label="Failed" value={formatWholeNumber(summary.failed)} />
-              </div>
-
-              <div className="mt-5 overflow-hidden rounded-[22px] border border-brand-ink/8 bg-white">
-                <div className="grid grid-cols-[1fr_0.8fr_1fr] gap-3 border-b border-brand-ink/8 px-4 py-3 text-xs font-bold uppercase tracking-[0.14em] text-brand-muted">
-                  <span>Recipient</span>
-                  <span>Status</span>
-                  <span>Updated</span>
-                </div>
-                <div className="max-h-[320px] overflow-auto">
-                  {sends.length === 0 ? (
-                    <p className="px-4 py-5 text-sm text-brand-muted">No sends returned for this job.</p>
-                  ) : (
-                    sends.map((send, index) => (
-                      <div
-                        className="grid grid-cols-[1fr_0.8fr_1fr] gap-3 border-b border-brand-ink/6 px-4 py-3 text-sm last:border-b-0"
-                        key={send.id ?? send.wamid ?? `${selectedJob.id}-${index}`}
-                      >
-                        <span className="truncate font-semibold text-brand-ink">
-                          {safeText(send.phone ?? send.number ?? send.recipient ?? send.to, 'Unknown')}
-                        </span>
-                        <span className="truncate text-brand-muted">{safeText(send.status, 'Pending')}</span>
-                        <span className="truncate text-brand-muted">{formatDateTime(send.updated_at ?? send.created_at)}</span>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </div>
-            </div>
-          ) : null}
-        </div>
-      </div>
-    </section>
-  )
-}
 
 function StatCard({ accent = 'text-brand-ink', description, isActive = false, label, onClick, value }) {
   const sharedClassName = `crm-top-stat rounded-[24px] border border-white/80 bg-white/92 p-5 shadow-[0_14px_36px_rgba(15,23,42,0.05)] ${

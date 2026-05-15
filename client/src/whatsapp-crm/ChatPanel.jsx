@@ -1,0 +1,108 @@
+import { useEffect, useRef, useState } from 'react'
+import { chatApi, conversationsApi, leadsApi } from './api'
+import MediaUpload from './MediaUpload'
+import MessageBubble from './MessageBubble'
+import TakeoverBanner from './TakeoverBanner'
+
+export default function ChatPanel({ lead: initialLead }) {
+  const [conv, setConv] = useState(null)
+  const [lead, setLead] = useState(initialLead)
+  const [text, setText] = useState('')
+  const [sending, setSending] = useState(false)
+  const bottomRef = useRef()
+
+  const loadConv = async () => {
+    if (!initialLead?.id) return
+    try {
+      const { data } = await conversationsApi.get(initialLead.id)
+      setConv(data)
+      setLead({
+        ...initialLead,
+        ai_active: data.lead.ai_active,
+        ai_paused_until: data.lead.ai_paused_until,
+      })
+    } catch { /* ignore */ }
+  }
+
+  useEffect(() => { loadConv() }, [initialLead?.id])
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [conv?.messages?.length])
+
+  const handleSendText = async (e) => {
+    e.preventDefault()
+    if (!text.trim() || !conv || sending) return
+    setSending(true)
+    try { await chatApi.sendText(conv.lead.id, text); setText(''); await loadConv() }
+    catch { /* ignore */ } finally { setSending(false) }
+  }
+
+  const handleSendMedia = async (file) => {
+    if (!conv || sending) return
+    setSending(true)
+    try { await chatApi.sendMedia(conv.lead.id, file); await loadConv() }
+    catch { /* ignore */ } finally { setSending(false) }
+  }
+
+  const handleTakeover = async () => {
+    if (!conv) return
+    try {
+      await leadsApi.takeover(conv.lead.id)
+      setLead(prev => ({ ...prev, ai_active: false }))
+    } catch { /* ignore */ }
+  }
+
+  if (!initialLead) {
+    return (
+      <div className="flex-1 flex items-center justify-center text-gray-400 bg-gray-50">
+        <div className="text-center">
+          <p className="text-4xl mb-2">💬</p>
+          <p>Select a conversation</p>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex flex-col flex-1 h-full bg-white">
+      <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
+        <div>
+          <h3 className="font-semibold text-gray-800">{lead?.name || lead?.phone}</h3>
+          <p className="text-xs text-gray-500">{lead?.phone}</p>
+        </div>
+        <div className="flex items-center gap-2">
+          {lead?.ai_active && (
+            <button onClick={handleTakeover}
+              className="text-xs bg-gray-100 hover:bg-orange-100 text-gray-700 hover:text-orange-700 px-3 py-1 rounded-full font-medium transition-colors">
+              Take Over
+            </button>
+          )}
+          <span className={`text-xs px-2 py-1 rounded-full font-medium
+            ${lead?.ai_active ? 'bg-blue-100 text-blue-700' : 'bg-orange-100 text-orange-700'}`}>
+            {lead?.ai_active ? 'AI Active' : 'Human'}
+          </span>
+        </div>
+      </div>
+      <TakeoverBanner
+        lead={lead}
+        onResume={() => setLead(prev => ({ ...prev, ai_active: true, ai_paused_until: null }))}
+      />
+      <div className="flex-1 overflow-y-auto px-4 py-4 bg-gray-50">
+        {conv?.messages?.map((m, i) => <MessageBubble key={m.id || i} msg={m} />)}
+        <div ref={bottomRef} />
+      </div>
+      <form onSubmit={handleSendText}
+        className="px-4 py-3 border-t border-gray-200 flex items-center gap-2 bg-white">
+        <MediaUpload onFile={handleSendMedia} />
+        <input type="text" value={text} onChange={e => setText(e.target.value)}
+          placeholder="Type a message..."
+          className="flex-1 border border-gray-200 rounded-full px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500" />
+        <button type="submit" disabled={sending || !text.trim()}
+          className="bg-green-500 hover:bg-green-600 text-white rounded-full w-9 h-9 flex items-center justify-center disabled:opacity-50 flex-shrink-0">
+          ›
+        </button>
+      </form>
+    </div>
+  )
+}

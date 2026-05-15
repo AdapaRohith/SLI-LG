@@ -7,10 +7,17 @@ export default defineConfig({
   server: {
     allowedHosts: ['unintensive-precosmic-latia.ngrok-free.dev'],
     proxy: {
+      '/slilg-api': {
+        target: 'https://slilg-api.avlokai.com',
+        changeOrigin: true,
+        secure: true,
+        rewrite: (p) => p.replace(/^\/slilg-api/, ''),
+      },
       '/wa-api': {
         target: 'https://wa-slilg.avlokai.com',
         changeOrigin: true,
         secure: true,
+        ws: true,
         rewrite: (p) => p.replace(/^\/wa-api/, ''),
       },
     },
