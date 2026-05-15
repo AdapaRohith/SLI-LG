@@ -38,6 +38,7 @@ export function AdminPage() {
   const [isImporting, setIsImporting] = useState(false)
   const [exportMessage, setExportMessage] = useState(null)
   const [exportDateRange, setExportDateRange] = useState(getDefaultExportDateRange)
+  const [exportOpen, setExportOpen] = useState(false)
 
   useEffect(() => {
     let ignore = false
@@ -101,7 +102,6 @@ export function AdminPage() {
       window.clearTimeout(timeoutId)
     }
   }, [refreshKey, searchQuery])
-
 
   const stats = useMemo(() => {
     return leadsState.items.reduce(
@@ -343,7 +343,7 @@ export function AdminPage() {
       const worksheet = XLSX.utils.json_to_sheet(payload, { header: LEAD_EXPORT_HEADERS })
       const workbook = XLSX.utils.book_new()
       XLSX.utils.book_append_sheet(workbook, worksheet, 'Leads')
-      
+
       const dateString = new Date().toISOString().split('T')[0]
       XLSX.writeFile(workbook, `leads_export_${dateString}.xlsx`)
 
@@ -370,6 +370,7 @@ export function AdminPage() {
         exportDateRange={exportDateRange}
         exportDateRangeError={exportDateRangeError}
         exportLeadsCount={exportLeads.length}
+        exportOpen={exportOpen}
         filteredCount={filteredLeads.length}
         health={health}
         isExporting={isExporting}
@@ -387,6 +388,7 @@ export function AdminPage() {
         onSelectLead={handleSelectLead}
         onSelectSourceFilter={handleSelectSourceFilter}
         onSelectTab={setActiveTab}
+        onToggleExport={() => setExportOpen((v) => !v)}
         searchQuery={searchQuery}
         selectedLead={selectedLead}
         selectedLeadTemperature={selectedLeadTemperature}
@@ -397,31 +399,38 @@ export function AdminPage() {
         visibleLeads={filteredLeads}
       />
 
-      <div className="crm-admin-desktop-layout crm-admin-page shell py-8 sm:py-10">
-        <div className="crm-admin-shell p-4 sm:p-6 lg:p-8">
-          <AdminHero
-            activeFilter={activeFilter}
-            activeSourceFilter={activeSourceFilter}
-            averageScore={averageScore}
-            exportDateRange={exportDateRange}
-            exportDateRangeError={exportDateRangeError}
-            exportLeadsCount={exportLeads.length}
-            health={health}
-            onExport={handleExport}
-            isExporting={isExporting}
-            onImport={handleImport}
-            isImporting={isImporting}
-            onQuickDownload={handleQuickDownload}
-            onExportDateRangeChange={setExportDateRange}
-            onLogout={handleLogout}
-            onRefresh={() => setRefreshKey((value) => value + 1)}
-            onSelectFilter={handleSelectFilter}
-            onSelectSourceFilter={handleSelectSourceFilter}
-            sourceFilterOptions={sourceFilterOptions}
-            stats={stats}
-          />
+      <div className="crm-admin-desktop-layout">
+        <AppTopbar
+          health={health}
+          exportOpen={exportOpen}
+          onToggleExport={() => setExportOpen((v) => !v)}
+          onRefresh={() => setRefreshKey((value) => value + 1)}
+          onLogout={handleLogout}
+        />
 
-          <div className={`crm-dashboard-grid mt-8 ${isMobileDetailOpen ? 'crm-mobile-detail-open' : ''}`}>
+        {exportOpen && (
+          <div className="crm-export-panel">
+            <div className="shell py-4">
+              <ExportControls
+                activeSourceFilter={activeSourceFilter}
+                exportDateRange={exportDateRange}
+                exportDateRangeError={exportDateRangeError}
+                exportLeadsCount={exportLeads.length}
+                isExporting={isExporting}
+                isImporting={isImporting}
+                onExport={handleExport}
+                onImport={handleImport}
+                onQuickDownload={handleQuickDownload}
+                onExportDateRangeChange={setExportDateRange}
+                onSelectSourceFilter={handleSelectSourceFilter}
+                sourceFilterOptions={sourceFilterOptions}
+              />
+            </div>
+          </div>
+        )}
+
+        <div className="crm-admin-body shell">
+          <div className={`crm-dashboard-grid ${isMobileDetailOpen ? 'crm-mobile-detail-open' : ''}`}>
             <LeadSidebar
               activeLeadId={activeLeadId}
               selectedLead={selectedLead}
@@ -464,6 +473,41 @@ export function AdminPage() {
   )
 }
 
+function AppTopbar({ health, exportOpen, onToggleExport, onRefresh, onLogout }) {
+  return (
+    <header className="crm-topbar">
+      <div className="crm-topbar-inner shell">
+        <div className="crm-topbar-brand">
+          <span className="crm-topbar-logo">SL</span>
+          <span className="crm-topbar-name">
+            SpaceLink <strong>CRM</strong>
+          </span>
+        </div>
+
+        <nav className="crm-topbar-actions">
+          <HealthBadge health={health} />
+          <button className="crm-topbar-btn" onClick={onRefresh} type="button">
+            Refresh
+          </button>
+          <button
+            className={`crm-topbar-btn ${exportOpen ? 'crm-topbar-btn-active' : ''}`}
+            onClick={onToggleExport}
+            type="button"
+          >
+            {exportOpen ? 'Hide Export' : 'Export ↓'}
+          </button>
+          <Link className="crm-topbar-btn" to="/">
+            Home
+          </Link>
+          <button className="crm-topbar-btn crm-topbar-btn-muted" onClick={onLogout} type="button">
+            Sign out
+          </button>
+        </nav>
+      </div>
+    </header>
+  )
+}
+
 function MobileAdminDashboard({
   activeFilter,
   activeLeadId,
@@ -474,6 +518,7 @@ function MobileAdminDashboard({
   exportDateRange,
   exportDateRangeError,
   exportLeadsCount,
+  exportOpen,
   filteredCount,
   health,
   isExporting,
@@ -491,6 +536,7 @@ function MobileAdminDashboard({
   onSelectLead,
   onSelectSourceFilter,
   onSelectTab,
+  onToggleExport,
   searchQuery,
   selectedLead,
   selectedLeadTemperature,
@@ -515,57 +561,60 @@ function MobileAdminDashboard({
         <>
           <header className="crm-mobile-admin-top">
             <div>
-              <p>Workspace</p>
+              <p>SpaceLink CRM</p>
               <h1>Leads</h1>
             </div>
             <div className="crm-mobile-admin-actions">
               <HealthBadge health={health} />
               <button type="button" onClick={onRefresh}>Refresh</button>
+              <button type="button" onClick={onToggleExport}>{exportOpen ? 'Hide Export' : 'Export'}</button>
               <button type="button" onClick={onLogout}>Sign out</button>
             </div>
           </header>
 
-          <section className="crm-mobile-export">
-            <div className="crm-mobile-export-dates">
-              <label>
-                From
-                <ExportDateField
-                  label="From"
-                  value={exportDateRange.from}
-                  onChange={(value) => onExportDateRangeChange((current) => ({ ...current, from: value }))}
-                />
-              </label>
-              <label>
-                To
-                <ExportDateField
-                  label="To"
-                  value={exportDateRange.to}
-                  onChange={(value) => onExportDateRangeChange((current) => ({ ...current, to: value }))}
-                />
-              </label>
-              <label className="crm-mobile-source-field">
-                Source
-                <select value={activeSourceFilter} onChange={(event) => onSelectSourceFilter(event.target.value)}>
-                  {sourceFilterOptions.map((sourceOption) => (
-                    <option key={sourceOption.key} value={sourceOption.key}>
-                      {sourceOption.label} ({sourceOption.count})
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
-            <div className="crm-mobile-export-actions">
-              <button type="button" onClick={onQuickDownload} disabled={Boolean(exportDateRangeError) || exportLeadsCount === 0}>
-                Download XLSX
-              </button>
-              <button type="button" onClick={onExport} disabled={isExporting || Boolean(exportDateRangeError) || exportLeadsCount === 0}>
-                {isExporting ? 'Exporting...' : `Export + Chats (${exportLeadsCount})`}
-              </button>
-              <input id="mobile-import-upload" type="file" accept=".xlsx" className="hidden" onChange={onImport} disabled={isImporting} />
-              <label htmlFor="mobile-import-upload">{isImporting ? 'Importing...' : 'Import XLSX'}</label>
-            </div>
-            <p>{exportDateRangeError || `${exportLeadsCount} matching first received date`}</p>
-          </section>
+          {exportOpen && (
+            <section className="crm-mobile-export">
+              <div className="crm-mobile-export-dates">
+                <label>
+                  From
+                  <ExportDateField
+                    label="From"
+                    value={exportDateRange.from}
+                    onChange={(value) => onExportDateRangeChange((current) => ({ ...current, from: value }))}
+                  />
+                </label>
+                <label>
+                  To
+                  <ExportDateField
+                    label="To"
+                    value={exportDateRange.to}
+                    onChange={(value) => onExportDateRangeChange((current) => ({ ...current, to: value }))}
+                  />
+                </label>
+                <label className="crm-mobile-source-field">
+                  Source
+                  <select value={activeSourceFilter} onChange={(event) => onSelectSourceFilter(event.target.value)}>
+                    {sourceFilterOptions.map((sourceOption) => (
+                      <option key={sourceOption.key} value={sourceOption.key}>
+                        {sourceOption.label} ({sourceOption.count})
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+              <div className="crm-mobile-export-actions">
+                <button type="button" onClick={onQuickDownload} disabled={Boolean(exportDateRangeError) || exportLeadsCount === 0}>
+                  Download XLSX
+                </button>
+                <button type="button" onClick={onExport} disabled={isExporting || Boolean(exportDateRangeError) || exportLeadsCount === 0}>
+                  {isExporting ? 'Exporting...' : `Export + Chats (${exportLeadsCount})`}
+                </button>
+                <input id="mobile-import-upload" type="file" accept=".xlsx" className="hidden" onChange={onImport} disabled={isImporting} />
+                <label htmlFor="mobile-import-upload">{isImporting ? 'Importing...' : 'Import XLSX'}</label>
+              </div>
+              <p>{exportDateRangeError || `${exportLeadsCount} matching first received date`}</p>
+            </section>
+          )}
 
           <section className="crm-mobile-stats">
             <button type="button" className={activeFilter === 'all' ? 'active' : ''} onClick={() => onSelectFilter('all')}><span>All</span><strong>{stats.total}</strong></button>
@@ -633,7 +682,7 @@ function MobileAdminDashboard({
       ) : selectedLead ? (
         <>
           <header className="crm-mobile-detail-top">
-            <button type="button" onClick={onBackToList}>Back</button>
+            <button type="button" onClick={onBackToList}>← Back</button>
             <div className="crm-avatar crm-avatar-lg">{getInitials(selectedLead.name)}</div>
             <div>
               <h1>{safeText(selectedLead.name, 'Unknown lead')}</h1>
@@ -697,113 +746,6 @@ function MobileAdminDashboard({
   )
 }
 
-function AdminHero({
-  activeFilter,
-  activeSourceFilter,
-  averageScore,
-  exportDateRange,
-  exportDateRangeError,
-  exportLeadsCount,
-  health,
-  isExporting,
-  onExport,
-  isImporting,
-  onImport,
-  onQuickDownload,
-  onExportDateRangeChange,
-  onLogout,
-  onRefresh,
-  onSelectFilter,
-  onSelectSourceFilter,
-  sourceFilterOptions,
-  stats,
-}) {
-  return (
-    <section className="crm-admin-hero crm-fade-up">
-      <div className="crm-admin-hero-card relative overflow-hidden rounded-[32px] border border-brand-ink/8 bg-white/88 p-6 shadow-[0_22px_60px_rgba(15,23,42,0.08)] sm:p-8">
-        <div className="crm-admin-orb crm-admin-orb-primary" />
-        <div className="crm-admin-orb crm-admin-orb-secondary" />
-
-        <div className="crm-admin-titlebar relative flex flex-wrap items-start justify-between gap-6">
-          <div className="crm-admin-titlecopy max-w-3xl">
-            <p className="text-kicker">Workspace</p>
-            <h1 className="mt-3 font-display text-4xl font-bold tracking-tight text-brand-ink sm:text-5xl">
-              Leads
-            </h1>
-
-            <div className="crm-admin-actions mt-6 flex flex-wrap items-center gap-3">
-              <HealthBadge health={health} />
-              <button className="button-secondary" onClick={onRefresh} type="button">
-                Refresh
-              </button>
-              <Link className="button-secondary" to="/">
-                Home
-              </Link>
-              <button className="button-secondary" onClick={onLogout} type="button">
-                Sign out
-              </button>
-            </div>
-
-          </div>
-
-          <div className="crm-admin-stats grid w-full gap-4 sm:grid-cols-2 xl:w-[520px] xl:grid-cols-3">
-            <StatCard
-              label="All"
-              value={stats.total}
-              description="Leads"
-              isActive={activeFilter === 'all'}
-              onClick={() => onSelectFilter('all')}
-            />
-            <StatCard
-              label="Priority"
-              value={stats.hot}
-              accent="text-red-600"
-              description="High score"
-              isActive={activeFilter === 'hot'}
-              onClick={() => onSelectFilter('hot')}
-            />
-            <StatCard
-              label="Active"
-              value={stats.warm}
-              accent="text-amber-600"
-              description="Mid score"
-              isActive={activeFilter === 'warm'}
-              onClick={() => onSelectFilter('warm')}
-            />
-            <StatCard
-              label="Others"
-              value={stats.cold}
-              accent="text-slate-700"
-              description="Low score"
-              isActive={activeFilter === 'cold'}
-              onClick={() => onSelectFilter('cold')}
-            />
-            <StatCard label="Escalated" value={stats.escalated} accent="text-emerald-600" description="Flagged" />
-            <StatCard label="Avg. Score" value={averageScore} accent="text-sky-600" description="Average" />
-          </div>
-        </div>
-
-        <div className="w-full">
-          <ExportControls
-            activeSourceFilter={activeSourceFilter}
-            exportDateRange={exportDateRange}
-            exportDateRangeError={exportDateRangeError}
-            exportLeadsCount={exportLeadsCount}
-            isExporting={isExporting}
-            onExport={onExport}
-            isImporting={isImporting}
-            onImport={onImport}
-            onQuickDownload={onQuickDownload}
-            onExportDateRangeChange={onExportDateRangeChange}
-            onSelectSourceFilter={onSelectSourceFilter}
-            sourceFilterOptions={sourceFilterOptions}
-          />
-        </div>
-      </div>
-    </section>
-  )
-}
-
 function LeadSidebar({
   activeFilter,
   activeLeadId,
@@ -822,7 +764,7 @@ function LeadSidebar({
   stats,
   visibleLeads,
 }) {
-  const filters = [
+  const filterOptions = [
     { key: 'all', label: 'All', count: leadsState.items.length },
     { key: 'hot', label: 'Priority', count: stats.hot },
     { key: 'warm', label: 'Active', count: stats.warm },
@@ -830,80 +772,61 @@ function LeadSidebar({
   ]
 
   return (
-    <aside className="crm-admin-panel crm-lead-sidebar crm-fade-up crm-fade-up-delay-1 p-5">
-      <div className="crm-lead-sidebar-top">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <p className="text-xs font-bold uppercase tracking-[0.18em] text-brand-muted">People</p>
-            <h2 className="mt-2 font-display text-2xl font-bold text-brand-ink">Lead list</h2>
-          </div>
-          <div className="rounded-full border border-brand-accent/15 bg-brand-soft px-3 py-2 text-xs font-semibold text-brand-ink">
-            {filteredCount}
-          </div>
+    <aside className="crm-admin-panel crm-lead-sidebar crm-fade-up crm-fade-up-delay-1">
+      <div className="crm-sidebar-head">
+        <div className="crm-sidebar-title-row">
+          <h2 className="crm-sidebar-title">Leads</h2>
+          <span className="crm-count-pill">{filteredCount}</span>
         </div>
 
-        <label className="mt-5 block text-sm font-semibold text-brand-ink">
-          Search
-          <input
-            className="crm-lead-search mt-2 w-full rounded-2xl border border-brand-ink/10 bg-white px-4 py-3 outline-none transition focus:border-brand-accent"
-            value={searchQuery}
-            onChange={(event) => setSearchQuery(event.target.value)}
-            placeholder="Name or number"
-          />
-        </label>
+        <input
+          className="crm-lead-search mt-3 w-full rounded-xl border border-brand-ink/10 bg-white/80 px-4 py-2.5 text-sm outline-none transition focus:border-brand-accent"
+          value={searchQuery}
+          onChange={(event) => setSearchQuery(event.target.value)}
+          placeholder="Search name or number…"
+        />
 
-        <div className="crm-filter-row mt-5">
-          {filters.map((filterOption) => (
+        <div className="crm-stat-pills mt-3">
+          {filterOptions.map((f) => (
             <button
-              key={filterOption.key}
+              key={f.key}
               type="button"
-              className={`crm-filter-chip ${activeFilter === filterOption.key ? 'crm-filter-chip-active' : ''}`}
+              className={`crm-stat-pill ${activeFilter === f.key ? 'crm-stat-pill-active' : ''}`}
               onClick={() => {
                 onCloseMobileDetail()
-                setActiveFilter(filterOption.key)
+                setActiveFilter(f.key)
               }}
             >
-              <span>{filterOption.label}</span>
-              <span className="crm-filter-chip-count">{filterOption.count}</span>
+              {f.label}
+              <span className="crm-pill-count">{f.count}</span>
             </button>
           ))}
         </div>
 
-        <label className="mt-5 block text-sm font-semibold text-brand-ink">
-          Source
-          <select
-            className="crm-lead-search mt-2 w-full rounded-2xl border border-brand-ink/10 bg-white px-4 py-3 outline-none transition focus:border-brand-accent"
-            value={activeSourceFilter}
-            onChange={(event) => {
-              onCloseMobileDetail()
-              onSelectSourceFilter(event.target.value)
-            }}
-          >
-            {sourceFilterOptions.map((sourceOption) => (
-              <option key={sourceOption.key} value={sourceOption.key}>
-                {sourceOption.label} ({sourceOption.count})
-              </option>
-            ))}
-          </select>
-        </label>
+        <select
+          className="crm-lead-search mt-3 w-full rounded-xl border border-brand-ink/10 bg-white/80 px-4 py-2.5 text-sm outline-none transition focus:border-brand-accent"
+          value={activeSourceFilter}
+          onChange={(event) => {
+            onCloseMobileDetail()
+            onSelectSourceFilter(event.target.value)
+          }}
+        >
+          {sourceFilterOptions.map((sourceOption) => (
+            <option key={sourceOption.key} value={sourceOption.key}>
+              {sourceOption.label} ({sourceOption.count})
+            </option>
+          ))}
+        </select>
       </div>
 
-      <div className="crm-lead-scroll mt-5 space-y-3 pr-1">
-        {leadsState.loading ? <EmptyState message="Loading..." /> : null}
+      <div className="crm-lead-scroll mt-3 space-y-2 pr-1">
+        {leadsState.loading ? <EmptyState message="Loading…" /> : null}
         {!leadsState.loading && leadsState.error ? <ErrorState message={leadsState.error} /> : null}
         {!leadsState.loading && !leadsState.error && visibleLeads.length === 0 ? (
-          <EmptyState
-            message={
-              searchQuery.trim()
-                ? 'No matches'
-                : activeFilter === 'all'
-                  ? 'No leads'
-                  : 'No leads'
-            }
-          />
+          <EmptyState message={searchQuery.trim() ? 'No matches' : 'No leads'} />
         ) : null}
 
-            {!leadsState.loading && !leadsState.error
+        {!leadsState.loading && !leadsState.error
           ? visibleLeads.map((lead, index) => {
               const isActive = lead.id === activeLeadId
               const displayLead = isActive && selectedLead ? selectedLead : lead
@@ -922,34 +845,35 @@ function LeadSidebar({
                   }}
                   type="button"
                   onClick={() => onSelectLead(lead.id)}
-                  className={`crm-lead-card crm-fade-up-subtle w-full rounded-[26px] border p-4 text-left ${
-                    isActive ? 'crm-lead-card-active border-brand-accent/40 bg-brand-soft/80' : 'border-brand-ink/10 bg-white/88'
+                  className={`crm-lead-card crm-fade-up-subtle w-full rounded-2xl border p-3.5 text-left transition-all ${
+                    isActive
+                      ? 'crm-lead-card-active border-brand-accent/40 bg-brand-soft/80'
+                      : 'border-brand-ink/8 bg-white/88'
                   }`}
                   style={{ '--crm-enter-delay': `${Math.min(index * 35, 280)}ms` }}
                 >
-                  <div className="flex items-start gap-3">
+                  <div className="flex items-center gap-3">
                     <div className="crm-avatar shrink-0">{getInitials(displayLead.name)}</div>
                     <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <p className="truncate font-semibold text-brand-ink">{safeText(displayLead.name, 'Unknown lead')}</p>
-                          <p className="mt-1 truncate text-sm text-brand-muted">{safeText(displayLead.phone, 'Phone unavailable')}</p>
-                        </div>
-                        <span className={`rounded-full border px-3 py-1 text-[11px] font-bold uppercase tracking-[0.14em] ${badgeClass}`}>
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="truncate text-sm font-semibold text-brand-ink leading-tight">
+                          {safeText(displayLead.name, 'Unknown lead')}
+                        </p>
+                        <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${badgeClass}`}>
                           {formatTemperatureLabel(leadTemperature)}
                         </span>
                       </div>
-
-                      <div className="mt-4 grid grid-cols-4 gap-2">
-                        <InlineMetric label="Score" value={displayLead.score ?? 0} />
-                        <InlineMetric label="Received" value={displayLead.messages_received ?? 0} />
-                        <InlineMetric label="Sent" value={displayLead.messages_sent ?? 0} />
-                        <InlineMetric label="Seen" value={formatShortDate(displayLead.last_message_at)} />
-                      </div>
-
-                      <div className="mt-4 flex flex-wrap items-center justify-between gap-2 text-xs text-brand-muted">
-                        <span>{formatBudgetRange(displayLead)}</span>
-                        <span className="crm-source-pill">{formatLeadSource(displayLead.source)}</span>
+                      <p className="mt-0.5 truncate text-xs text-brand-muted">
+                        {safeText(displayLead.phone, 'Phone unavailable')}
+                      </p>
+                      <div className="mt-2 flex items-center gap-3 text-xs text-brand-muted">
+                        <span>
+                          Score <strong className="text-brand-ink">{displayLead.score ?? 0}</strong>
+                        </span>
+                        <span>{formatShortDate(displayLead.last_message_at)}</span>
+                        <span className="ml-auto crm-source-pill shrink-0">
+                          {formatLeadSource(displayLead.source)}
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -977,82 +901,80 @@ function ExportControls({
   sourceFilterOptions,
 }) {
   return (
-    <div className="crm-export-card mt-6 rounded-[24px] border border-brand-ink/8 bg-white/82 p-4 shadow-[0_12px_32px_rgba(15,23,42,0.05)]">
-      <div className="flex flex-col xl:flex-row xl:items-end xl:justify-between gap-4">
-        <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 w-full xl:max-w-lg">
-          <label className="block text-xs font-bold uppercase tracking-[0.16em] text-brand-muted">
-            From
-            <ExportDateField
-              label="From"
-              value={exportDateRange.from}
-              onChange={(value) => onExportDateRangeChange((current) => ({ ...current, from: value }))}
-            />
-          </label>
-          <label className="block text-xs font-bold uppercase tracking-[0.16em] text-brand-muted">
-            To
-            <ExportDateField
-              label="To"
-              value={exportDateRange.to}
-              onChange={(value) => onExportDateRangeChange((current) => ({ ...current, to: value }))}
-            />
-          </label>
-          <label className="block text-xs font-bold uppercase tracking-[0.16em] text-brand-muted col-span-2 sm:col-span-1">
-            Source
-            <select
-              className="crm-lead-search mt-2 block w-full rounded-2xl border border-brand-ink/10 bg-white px-4 py-3 text-sm font-medium normal-case tracking-normal text-brand-ink outline-none transition focus:border-brand-accent"
-              value={activeSourceFilter}
-              onChange={(event) => onSelectSourceFilter(event.target.value)}
-            >
-              {sourceFilterOptions.map((sourceOption) => (
-                <option key={sourceOption.key} value={sourceOption.key}>
-                  {sourceOption.label} ({sourceOption.count})
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
-        <div className="flex flex-wrap gap-2 w-full xl:w-auto shrink-0">
-          <button
-            className="button-primary w-full justify-center sm:w-auto"
-            onClick={onQuickDownload}
-            disabled={Boolean(exportDateRangeError) || exportLeadsCount === 0}
-            type="button"
-            title="Instant download — no API calls, no chat history"
+    <div className="flex flex-col xl:flex-row xl:items-end xl:justify-between gap-4">
+      <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 w-full xl:max-w-lg">
+        <label className="block text-xs font-bold uppercase tracking-[0.16em] text-brand-muted">
+          From
+          <ExportDateField
+            label="From"
+            value={exportDateRange.from}
+            onChange={(value) => onExportDateRangeChange((current) => ({ ...current, from: value }))}
+          />
+        </label>
+        <label className="block text-xs font-bold uppercase tracking-[0.16em] text-brand-muted">
+          To
+          <ExportDateField
+            label="To"
+            value={exportDateRange.to}
+            onChange={(value) => onExportDateRangeChange((current) => ({ ...current, to: value }))}
+          />
+        </label>
+        <label className="block text-xs font-bold uppercase tracking-[0.16em] text-brand-muted col-span-2 sm:col-span-1">
+          Source
+          <select
+            className="crm-lead-search mt-2 block w-full rounded-xl border border-brand-ink/10 bg-white px-4 py-2.5 text-sm font-medium normal-case tracking-normal text-brand-ink outline-none transition focus:border-brand-accent"
+            value={activeSourceFilter}
+            onChange={(event) => onSelectSourceFilter(event.target.value)}
           >
-            ↓ Download XLSX
-          </button>
-          <button
-            className="button-secondary w-full justify-center sm:w-auto"
-            onClick={onExport}
-            disabled={isExporting || Boolean(exportDateRangeError) || exportLeadsCount === 0}
-            type="button"
-            title="Full export with chat history — slower"
-          >
-            {isExporting ? 'Exporting...' : `Export + Chats (${exportLeadsCount})`}
-          </button>
-          <div className="relative w-full sm:w-auto">
-            <input
-              type="file"
-              accept=".xlsx"
-              id="import-upload"
-              className="hidden"
-              onChange={onImport}
-              disabled={isImporting}
-            />
-            <label
-              htmlFor="import-upload"
-              className={`button-secondary w-full justify-center sm:w-auto cursor-pointer flex items-center ${isImporting ? 'opacity-50 cursor-not-allowed' : ''}`}
-            >
-              {isImporting ? 'Importing...' : 'Import XLSX'}
-            </label>
-          </div>
-        </div>
+            {sourceFilterOptions.map((sourceOption) => (
+              <option key={sourceOption.key} value={sourceOption.key}>
+                {sourceOption.label} ({sourceOption.count})
+              </option>
+            ))}
+          </select>
+        </label>
       </div>
-      <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs font-semibold text-brand-muted">
-        <span>{exportDateRangeError || `${exportLeadsCount} matching first received date`}</span>
+      <div className="flex flex-wrap gap-2 w-full xl:w-auto shrink-0 items-center">
+        <button
+          className="button-primary w-full justify-center sm:w-auto"
+          onClick={onQuickDownload}
+          disabled={Boolean(exportDateRangeError) || exportLeadsCount === 0}
+          type="button"
+          title="Instant download — no API calls, no chat history"
+        >
+          ↓ Download XLSX
+        </button>
+        <button
+          className="button-secondary w-full justify-center sm:w-auto"
+          onClick={onExport}
+          disabled={isExporting || Boolean(exportDateRangeError) || exportLeadsCount === 0}
+          type="button"
+          title="Full export with chat history — slower"
+        >
+          {isExporting ? 'Exporting...' : `Export + Chats (${exportLeadsCount})`}
+        </button>
+        <div className="relative w-full sm:w-auto">
+          <input
+            type="file"
+            accept=".xlsx"
+            id="import-upload"
+            className="hidden"
+            onChange={onImport}
+            disabled={isImporting}
+          />
+          <label
+            htmlFor="import-upload"
+            className={`button-secondary w-full justify-center sm:w-auto cursor-pointer flex items-center ${isImporting ? 'opacity-50 cursor-not-allowed' : ''}`}
+          >
+            {isImporting ? 'Importing...' : 'Import XLSX'}
+          </label>
+        </div>
+        <span className="text-xs font-medium text-brand-muted">
+          {exportDateRangeError || `${exportLeadsCount} leads`}
+        </span>
         {(exportDateRange.from || exportDateRange.to) && (
           <button
-            className="font-bold text-brand-accent transition hover:text-brand-ink"
+            className="text-xs font-bold text-brand-accent transition hover:text-brand-ink"
             onClick={() => onExportDateRangeChange(getDefaultExportDateRange())}
             type="button"
           >
@@ -1088,7 +1010,7 @@ function ExportDateField({ label, onChange, value }) {
   return (
     <span className="relative mt-2 block">
       <button
-        className="crm-lead-search block w-full rounded-2xl border border-brand-ink/10 bg-white px-4 py-3 text-left text-sm font-medium normal-case tracking-normal text-brand-ink outline-none transition focus:border-brand-accent"
+        className="crm-lead-search block w-full rounded-xl border border-brand-ink/10 bg-white px-4 py-2.5 text-left text-sm font-medium normal-case tracking-normal text-brand-ink outline-none transition focus:border-brand-accent"
         onClick={openPicker}
         type="button"
       >
@@ -1123,89 +1045,94 @@ function LeadWorkspace({
   }
 
   if (!selectedLead) {
-    return <EmptyState message="No lead selected" />
+    return (
+      <div className="crm-admin-panel crm-workspace-panel crm-workspace-empty crm-fade-up crm-fade-up-delay-2">
+        <p className="text-sm text-brand-muted">Select a lead to view details</p>
+      </div>
+    )
   }
 
   const leadPhone = normalizePhoneNumber(selectedLead.phone)
   const whatsappLink = leadPhone ? `https://wa.me/${leadPhone}` : ''
-  // SLI-LG stores last 10 digits; WhatsApp CRM expects E.164 (+91XXXXXXXXXX)
   const crmPhone = leadPhone
     ? leadPhone.length === 10 ? `+91${leadPhone}` : `+${leadPhone}`
     : null
 
   return (
     <article className="crm-admin-panel crm-workspace-panel crm-fade-up crm-fade-up-delay-2 overflow-hidden">
-      <div className="crm-lead-hero crm-workspace-header px-5 py-6 sm:px-6">
-        <div className="flex flex-wrap items-start justify-between gap-5">
-          <div className="flex min-w-0 items-start gap-4">
+      <div className="crm-workspace-head px-5 py-5 sm:px-6">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="flex min-w-0 items-center gap-3">
+            <button
+              className="crm-back-btn mr-1 xl:hidden"
+              onClick={onBackToList}
+              type="button"
+            >
+              ←
+            </button>
             <div className="crm-avatar crm-avatar-lg shrink-0">{getInitials(selectedLead.name)}</div>
             <div className="min-w-0">
-              <div className="mb-4 lg:hidden">
-                <button className="button-secondary xl:hidden" onClick={onBackToList} type="button">
-                  Back
-                </button>
-              </div>
               <div className="flex flex-wrap items-center gap-2">
-                <h2 className="crm-lead-title font-display text-3xl font-bold text-brand-ink">{safeText(selectedLead.name, 'Unknown lead')}</h2>
+                <h2 className="font-display text-2xl font-bold text-brand-ink leading-tight">
+                  {safeText(selectedLead.name, 'Unknown lead')}
+                </h2>
                 <span
-                  className={`rounded-full border px-3 py-1 text-xs font-bold uppercase tracking-[0.14em] ${
+                  className={`rounded-full border px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wide ${
                     statusStyles[selectedLeadTemperature] ?? statusStyles.cold
                   }`}
                 >
                   {formatTemperatureLabel(selectedLeadTemperature)}
                 </span>
               </div>
-              <p className="mt-2 text-sm font-medium text-brand-muted">{safeText(selectedLead.phone, 'Unavailable')}</p>
-
-              <div className="mt-5 flex flex-wrap gap-3">
-                {leadPhone ? (
-                  <a className="button-primary" href={`tel:${leadPhone}`}>
-                    Call
-                  </a>
-                ) : null}
-                {whatsappLink ? (
-                  <a className="button-secondary" href={whatsappLink} rel="noreferrer" target="_blank">
-                    WhatsApp
-                  </a>
-                ) : null}
-                {crmPhone ? (
-                  <button
-                    className="button-secondary"
-                    type="button"
-                    onClick={() => setChatOpen(true)}
-                  >
-                    Chat
-                  </button>
-                ) : null}
-              </div>
+              <p className="mt-0.5 text-sm text-brand-muted">
+                {safeText(selectedLead.phone, 'Unavailable')}
+              </p>
             </div>
           </div>
 
-          <div className="grid min-w-[220px] gap-3 sm:grid-cols-2">
-            <HighlightCard label="Score" value={selectedLead.score ?? 0} />
-            <HighlightCard label="Updated" value={formatShortDate(selectedLead.updated_at ?? selectedLead.created_at)} />
+          <div className="flex flex-wrap gap-2 shrink-0">
+            {leadPhone ? (
+              <a className="button-primary" href={`tel:${leadPhone}`}>
+                Call
+              </a>
+            ) : null}
+            {whatsappLink ? (
+              <a className="button-secondary" href={whatsappLink} rel="noreferrer" target="_blank">
+                WhatsApp
+              </a>
+            ) : null}
+            {crmPhone ? (
+              <button
+                className="button-secondary"
+                type="button"
+                onClick={() => setChatOpen(true)}
+              >
+                Chat
+              </button>
+            ) : null}
           </div>
         </div>
 
-        <div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
+        <div className="crm-workspace-chips mt-4">
+          <SummaryChip label="Score" value={selectedLead.score ?? 0} />
           <SummaryChip label="Source" value={formatLeadSource(selectedLead.source)} />
           <SummaryChip label="Escalated" value={selectedLead.escalated ? 'Yes' : 'No'} />
-          <SummaryChip label="Received" value={selectedLead.messages_received ?? 0} />
-          <SummaryChip label="Sent" value={selectedLead.messages_sent ?? 0} />
+          <SummaryChip label="Msgs In" value={selectedLead.messages_received ?? 0} />
+          <SummaryChip label="Msgs Out" value={selectedLead.messages_sent ?? 0} />
           <SummaryChip label="Budget" value={formatBudgetRange(selectedLead)} />
           <SummaryChip label="Last seen" value={formatShortDate(selectedLead.last_message_at)} />
         </div>
       </div>
 
-      <div className="crm-workspace-scroll space-y-6 px-5 py-6 sm:px-6">
+      <div className="crm-workspace-scroll space-y-5 px-5 py-5 sm:px-6">
         {detailViewState.loading ? (
-          <div className="rounded-3xl border border-dashed border-brand-ink/15 bg-brand-soft/40 px-4 py-5 text-sm text-brand-muted">
-            Loading...
+          <div className="rounded-xl border border-dashed border-brand-ink/15 bg-brand-soft/30 px-4 py-3 text-sm text-brand-muted">
+            Loading…
           </div>
         ) : null}
         {detailViewState.error ? <ErrorState message={detailViewState.error} /> : null}
 
-        <div className="crm-tabs mt-0">
+        <div className="crm-tabs">
           <button
             className={`crm-tab ${activeTab === 'overview' ? 'crm-tab-active' : ''}`}
             onClick={() => onSelectTab('overview')}
@@ -1224,7 +1151,7 @@ function LeadWorkspace({
         </div>
 
         {!showConversation ? (
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
             <DetailCard label="Name" value={safeText(selectedLead.name, 'Unknown lead')} />
             <DetailCard label="Phone" value={safeText(selectedLead.phone, 'Unavailable')} />
             <DetailCard label="Source" value={formatLeadSource(selectedLead.source)} />
@@ -1248,7 +1175,7 @@ function LeadWorkspace({
                   return (
                     <article
                       key={message.id}
-                      className={`crm-chat-message rounded-3xl border px-4 py-4 ${
+                      className={`crm-chat-message rounded-2xl border px-4 py-4 ${
                         isUser
                           ? 'crm-chat-message-user bg-white border-brand-ink/10'
                           : 'crm-chat-message-assistant border-brand-accent/15 bg-brand-soft/75'
@@ -1256,12 +1183,12 @@ function LeadWorkspace({
                       style={{ '--crm-enter-delay': `${Math.min(index * 45, 240)}ms` }}
                     >
                       <div className="flex flex-wrap items-center justify-between gap-3">
-                        <p className="text-xs font-bold uppercase tracking-[0.14em] text-brand-muted">
+                        <p className="text-[11px] font-bold uppercase tracking-wider text-brand-muted">
                           {isUser ? 'Lead' : 'Assistant'}
                         </p>
                         <p className="text-xs text-brand-muted">{formatDateTime(message.created_at)}</p>
                       </div>
-                      <p className="mt-3 whitespace-pre-wrap text-sm leading-7 text-brand-ink">
+                      <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-brand-ink">
                         {safeText(message.message_text, '[Empty message]')}
                       </p>
                     </article>
@@ -1285,83 +1212,48 @@ function LeadWorkspace({
 
 function HealthBadge({ health }) {
   if (health.loading) {
-    return <div className="rounded-full border border-brand-ink/10 bg-white px-4 py-2 text-sm font-semibold text-brand-muted">Checking</div>
+    return <div className="rounded-full border border-brand-ink/10 bg-white px-3 py-1.5 text-xs font-semibold text-brand-muted">Checking</div>
   }
 
   if (health.error) {
-    return <div className="rounded-full border border-red-200 bg-red-50 px-4 py-2 text-sm font-semibold text-red-700">Offline</div>
+    return <div className="rounded-full border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-700">Offline</div>
   }
 
-  return <div className="rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-700">Online</div>
-}
-
-
-function StatCard({ accent = 'text-brand-ink', description, isActive = false, label, onClick, value }) {
-  const sharedClassName = `crm-top-stat rounded-[24px] border border-white/80 bg-white/92 p-5 shadow-[0_14px_36px_rgba(15,23,42,0.05)] ${
-    isActive ? 'crm-top-stat-active' : ''
-  }`
-
-  if (onClick) {
-    return (
-      <button className={`${sharedClassName} text-left`} onClick={onClick} type="button">
-        <p className="text-sm font-semibold text-brand-muted">{label}</p>
-        <p className={`mt-3 font-display text-3xl font-bold ${accent}`}>{value}</p>
-        <p className="mt-2 text-xs font-medium leading-5 text-brand-muted">{description}</p>
-      </button>
-    )
-  }
-
-  return (
-    <div className={sharedClassName}>
-      <p className="text-sm font-semibold text-brand-muted">{label}</p>
-      <p className={`mt-3 font-display text-3xl font-bold ${accent}`}>{value}</p>
-      <p className="mt-2 text-xs font-medium leading-5 text-brand-muted">{description}</p>
-    </div>
-  )
-}
-
-function InlineMetric({ label, value }) {
-  return (
-    <div className="crm-inline-metric rounded-2xl border border-brand-ink/8 bg-white/95 px-3 py-2 shadow-[0_8px_18px_rgba(15,23,42,0.04)]">
-      <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-brand-muted">{label}</p>
-      <p className="mt-1 text-sm font-semibold text-brand-ink">{value}</p>
-    </div>
-  )
+  return <div className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700">● Online</div>
 }
 
 function DetailCard({ label, value }) {
   return (
-    <div className="crm-detail-card rounded-3xl border border-brand-ink/10 bg-slate-50/90 p-4">
+    <div className="crm-detail-card rounded-2xl border border-brand-ink/8 bg-slate-50/80 p-4">
       <p className="text-xs font-bold uppercase tracking-[0.16em] text-brand-muted">{label}</p>
-      <p className="mt-2 text-sm font-semibold text-brand-ink">{value}</p>
-    </div>
-  )
-}
-
-function HighlightCard({ label, value }) {
-  return (
-    <div className="crm-highlight-card rounded-[24px] border border-white/70 bg-white/92 px-4 py-4 shadow-[0_12px_28px_rgba(15,23,42,0.06)]">
-      <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-brand-muted">{label}</p>
-      <p className="mt-2 font-display text-2xl font-bold text-brand-ink">{value}</p>
+      <p className="mt-1.5 text-sm font-semibold text-brand-ink">{value}</p>
     </div>
   )
 }
 
 function SummaryChip({ label, value }) {
   return (
-    <div className="crm-summary-chip rounded-2xl border border-white/70 bg-white/88 px-4 py-3 shadow-[0_10px_24px_rgba(15,23,42,0.05)]">
-      <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-brand-muted">{label}</p>
-      <p className="mt-1 text-sm font-semibold text-brand-ink">{value}</p>
+    <div className="crm-summary-chip rounded-xl border border-brand-ink/8 bg-white/88 px-3 py-2.5 shadow-[0_6px_16px_rgba(15,23,42,0.04)]">
+      <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-brand-muted">{label}</p>
+      <p className="mt-0.5 text-sm font-semibold text-brand-ink">{value}</p>
     </div>
   )
 }
 
 function EmptyState({ message }) {
-  return <div className="rounded-3xl border border-dashed border-brand-ink/15 bg-slate-50 px-4 py-6 text-sm text-brand-muted">{message}</div>
+  return (
+    <div className="rounded-2xl border border-dashed border-brand-ink/12 bg-slate-50/60 px-4 py-6 text-sm text-brand-muted text-center">
+      {message}
+    </div>
+  )
 }
 
 function ErrorState({ message }) {
-  return <div className="rounded-3xl border border-red-200 bg-red-50 px-4 py-6 text-sm font-semibold text-red-700">{message}</div>
+  return (
+    <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-4 text-sm font-semibold text-red-700">
+      {message}
+    </div>
+  )
 }
 
 function formatBudgetRange(lead) {
@@ -1391,16 +1283,6 @@ function formatCurrency(value) {
     minimumFractionDigits: Number.isInteger(numeric) ? 0 : 1,
     maximumFractionDigits: 2,
   }).format(numeric)} Cr`
-}
-
-function formatWholeNumber(value) {
-  const numeric = Number(value ?? 0)
-
-  if (!Number.isFinite(numeric)) {
-    return '0'
-  }
-
-  return new Intl.NumberFormat('en-IN', { maximumFractionDigits: 0 }).format(numeric)
 }
 
 function formatPreferredLocations(value) {

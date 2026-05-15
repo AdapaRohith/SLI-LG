@@ -12,7 +12,8 @@
       "Read(//c/Users/paran/.claude/plugins/cache/ui-ux-pro-max-skill/ui-ux-pro-max/2.5.0/**)",
       "Bash(python skills/ui-ux-pro-max/scripts/search.py \"CRM chat drawer real estate admin WhatsApp slide-in panel\" --design-system -p \"SLI-LG WhatsApp Drawer\")",
       "Bash(dir \"C:\\\\Users\\\\paran\\\\.claude\\\\plugins\\\\cache\\\\ui-ux-pro-max-skill\\\\ui-ux-pro-max\\\\2.5.0\" /s /b)",
-      "Bash(python cli/assets/scripts/search.py \"CRM chat drawer real estate admin WhatsApp slide-in panel\" --design-system -p \"SLI-LG WhatsApp Drawer\")"
+      "Bash(python cli/assets/scripts/search.py \"CRM chat drawer real estate admin WhatsApp slide-in panel\" --design-system -p \"SLI-LG WhatsApp Drawer\")",
+      "Bash(python scripts/search.py \"real estate CRM lead generation light professional modern\" --design-system -p \"SpaceLink CRM\" -f markdown)"
     ]
   }
 }

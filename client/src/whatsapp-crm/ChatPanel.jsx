@@ -9,19 +9,34 @@ export default function ChatPanel({ lead: initialLead }) {
   const [lead, setLead] = useState(initialLead)
   const [text, setText] = useState('')
   const [sending, setSending] = useState(false)
+  const [convLoading, setConvLoading] = useState(false)
+  const [convError, setConvError] = useState('')
   const bottomRef = useRef()
 
   const loadConv = async () => {
-    if (!initialLead?.id) return
+    console.log('[ChatPanel] initialLead:', initialLead)
+    if (!initialLead?.id) {
+      console.warn('[ChatPanel] initialLead has no .id field — keys:', Object.keys(initialLead || {}))
+      return
+    }
+    setConvLoading(true)
+    setConvError('')
     try {
       const { data } = await conversationsApi.get(initialLead.id)
+      console.log('[ChatPanel] conv data:', data)
       setConv(data)
-      setLead({
-        ...initialLead,
-        ai_active: data.lead.ai_active,
-        ai_paused_until: data.lead.ai_paused_until,
-      })
-    } catch { /* ignore */ }
+      if (data?.lead) {
+        setLead({
+          ...initialLead,
+          ai_active: data.lead.ai_active,
+          ai_paused_until: data.lead.ai_paused_until,
+        })
+      }
+    } catch (err) {
+      setConvError(err?.response?.data?.detail || err?.message || 'Failed to load messages')
+    } finally {
+      setConvLoading(false)
+    }
   }
 
   useEffect(() => { loadConv() }, [initialLead?.id])
@@ -89,7 +104,28 @@ export default function ChatPanel({ lead: initialLead }) {
         onResume={() => setLead(prev => ({ ...prev, ai_active: true, ai_paused_until: null }))}
       />
       <div className="flex-1 overflow-y-auto px-4 py-4 bg-gray-50">
-        {conv?.messages?.map((m, i) => <MessageBubble key={m.id || i} msg={m} />)}
+        {convLoading && (
+          <div className="flex items-center justify-center h-full">
+            <p className="text-sm text-gray-400">Loading messages…</p>
+          </div>
+        )}
+        {!convLoading && convError && (
+          <div className="flex flex-col items-center justify-center h-full gap-3 text-center px-4">
+            <p className="text-sm font-medium text-red-600">{convError}</p>
+            <button
+              onClick={loadConv}
+              className="rounded-full bg-[#075E54] px-4 py-1.5 text-xs font-medium text-white hover:bg-[#128C7E]"
+            >
+              Retry
+            </button>
+          </div>
+        )}
+        {!convLoading && !convError && conv?.messages?.length === 0 && (
+          <div className="flex items-center justify-center h-full">
+            <p className="text-sm text-gray-400">No messages yet.</p>
+          </div>
+        )}
+        {!convLoading && !convError && conv?.messages?.map((m, i) => <MessageBubble key={m.id || i} msg={m} />)}
         <div ref={bottomRef} />
       </div>
       <form onSubmit={handleSendText}
