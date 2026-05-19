@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { chatApi, conversationsApi, leadsApi } from './api'
 import MediaUpload from './MediaUpload'
 import MessageBubble from './MessageBubble'
@@ -11,9 +11,10 @@ export default function ChatPanel({ lead: initialLead }) {
   const [sending, setSending] = useState(false)
   const [convLoading, setConvLoading] = useState(false)
   const [convError, setConvError] = useState('')
+  const [sendError, setSendError] = useState('')
   const bottomRef = useRef()
 
-  const loadConv = async () => {
+  const loadConv = useCallback(async () => {
     console.log('[ChatPanel] initialLead:', initialLead)
     if (!initialLead?.id) {
       console.warn('[ChatPanel] initialLead has no .id field — keys:', Object.keys(initialLead || {}))
@@ -37,9 +38,9 @@ export default function ChatPanel({ lead: initialLead }) {
     } finally {
       setConvLoading(false)
     }
-  }
+  }, [initialLead])
 
-  useEffect(() => { loadConv() }, [initialLead?.id])
+  useEffect(() => { loadConv() }, [loadConv])
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -49,15 +50,19 @@ export default function ChatPanel({ lead: initialLead }) {
     e.preventDefault()
     if (!text.trim() || !conv || sending) return
     setSending(true)
+    setSendError('')
     try { await chatApi.sendText(conv.lead.id, text); setText(''); await loadConv() }
-    catch { /* ignore */ } finally { setSending(false) }
+    catch (err) { setSendError(err?.response?.data?.detail || err?.message || 'Send failed') }
+    finally { setSending(false) }
   }
 
   const handleSendMedia = async (file) => {
     if (!conv || sending) return
     setSending(true)
+    setSendError('')
     try { await chatApi.sendMedia(conv.lead.id, file); await loadConv() }
-    catch { /* ignore */ } finally { setSending(false) }
+    catch (err) { setSendError(err?.response?.data?.detail || err?.message || 'Send failed') }
+    finally { setSending(false) }
   }
 
   const handleTakeover = async () => {
@@ -120,7 +125,12 @@ export default function ChatPanel({ lead: initialLead }) {
             </button>
           </div>
         )}
-        {!convLoading && !convError && conv?.messages?.length === 0 && (
+        {!convLoading && !convError && conv === null && (
+          <div className="flex items-center justify-center h-full">
+            <p className="text-sm text-gray-400">Could not load conversation.</p>
+          </div>
+        )}
+        {!convLoading && !convError && conv !== null && conv?.messages?.length === 0 && (
           <div className="flex items-center justify-center h-full">
             <p className="text-sm text-gray-400">No messages yet.</p>
           </div>
@@ -128,6 +138,12 @@ export default function ChatPanel({ lead: initialLead }) {
         {!convLoading && !convError && conv?.messages?.map((m, i) => <MessageBubble key={m.id || i} msg={m} />)}
         <div ref={bottomRef} />
       </div>
+      {sendError && (
+        <div className="px-4 py-2 bg-red-50 border-t border-red-100 flex items-center justify-between gap-2">
+          <p className="text-xs text-red-600">{sendError}</p>
+          <button onClick={() => setSendError('')} className="text-xs text-red-400 hover:text-red-600">✕</button>
+        </div>
+      )}
       <form onSubmit={handleSendText}
         className="px-4 py-3 border-t border-gray-200 flex items-center gap-2 bg-white">
         <MediaUpload onFile={handleSendMedia} />

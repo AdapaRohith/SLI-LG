@@ -5,9 +5,7 @@ import ChatPanel from './ChatPanel'
 
 function ensureCrmToken() {
   if (crmToken) return
-  const token = import.meta.env.VITE_WHATSAPP_ADMIN_TOKEN
-  if (!token) throw new Error('VITE_WHATSAPP_ADMIN_TOKEN not configured')
-  setCrmToken(token)
+  setCrmToken('SpaceLink@7426')
 }
 
 // status: 'idle' | 'loading' | 'ready' | 'not_found' | 'error'
@@ -22,10 +20,12 @@ export default function WhatsAppDrawer({ phone, customerName, open, onClose }) {
     if (!open || !phone) return
 
     let cancelled = false
-    setStatus('loading')
-    setLead(null)
 
     async function load() {
+      setStatus('loading')
+      setLead(null)
+      setErrorMsg('')
+
       try {
         ensureCrmToken()
         const { data } = await conversationsApi.list({ phone, limit: 1 })
@@ -49,13 +49,6 @@ export default function WhatsAppDrawer({ phone, customerName, open, onClose }) {
     return () => { cancelled = true }
   }, [open, phone, retryKey])
 
-  useEffect(() => {
-    if (!open) {
-      setStatus('idle')
-      setLead(null)
-    }
-  }, [open])
-
   // Trap Escape key
   useEffect(() => {
     if (!open) return
@@ -64,15 +57,12 @@ export default function WhatsAppDrawer({ phone, customerName, open, onClose }) {
     return () => window.removeEventListener('keydown', handleKey)
   }, [open, onClose])
 
-  if (!open) return null
-
-  const isSlideIn = status !== 'idle'
-
   return (
     <>
       {/* Backdrop */}
       <div
         className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm transition-opacity duration-200"
+        style={{ opacity: open ? 1 : 0, pointerEvents: open ? 'auto' : 'none' }}
         onClick={onClose}
         aria-hidden="true"
       />
@@ -83,7 +73,7 @@ export default function WhatsAppDrawer({ phone, customerName, open, onClose }) {
         aria-modal="true"
         aria-label={`WhatsApp chat — ${customerName || phone}`}
         className="fixed right-0 top-0 z-50 flex h-full w-full flex-col shadow-2xl transition-transform duration-300 ease-out sm:w-[440px]"
-        style={{ transform: isSlideIn ? 'translateX(0)' : 'translateX(100%)' }}
+        style={{ transform: open ? 'translateX(0)' : 'translateX(100%)' }}
       >
         {/* Header */}
         <div className="flex flex-shrink-0 items-center justify-between gap-3 bg-[#075E54] px-5 py-4">

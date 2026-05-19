@@ -1,4 +1,6 @@
-const BASE = import.meta.env.VITE_CRM_API_BASE_URL || 'https://wa-slilg.avlokai.com'
+import { WHATSAPP_API_BASE_URL } from '../config/endpoints'
+
+const BASE = WHATSAPP_API_BASE_URL.replace(/\/$/, '')
 
 function MediaPreview({ mediaType, mediaId }) {
   const src = `${BASE}/api/media/${mediaId}`

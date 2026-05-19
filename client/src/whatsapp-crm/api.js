@@ -1,7 +1,8 @@
 import axios from 'axios'
 import { crmToken, clearCrmToken } from './crmState'
+import { WHATSAPP_API_BASE_URL } from '../config/endpoints'
 
-const BASE = import.meta.env.VITE_CRM_API_BASE_URL || 'https://wa-slilg.avlokai.com'
+const BASE = WHATSAPP_API_BASE_URL.replace(/\/$/, '')
 
 const api = axios.create({ baseURL: `${BASE}/api` })
 

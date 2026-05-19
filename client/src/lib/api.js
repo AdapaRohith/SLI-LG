@@ -1,12 +1,11 @@
-const API_BASE_URL = (
-  import.meta.env.VITE_API_BASE_URL ??
-  (import.meta.env.DEV ? '/slilg-api' : 'https://slilg-api.avlokai.com')
-).replace(/\/$/, '')
-const WHATSAPP_API_BASE_URL = (
-  import.meta.env.VITE_WHATSAPP_API_BASE_URL ??
-  (import.meta.env.DEV ? '/wa-api' : 'https://wa-slilg.avlokai.com')
-).replace(/\/$/, '')
-const WHATSAPP_ADMIN_TOKEN = import.meta.env.VITE_WHATSAPP_ADMIN_TOKEN ?? 'SpaceLink@7426'
+import {
+  LEADS_API_BASE_URL,
+  WHATSAPP_ADMIN_TOKEN,
+  WHATSAPP_API_BASE_URL,
+} from '../config/endpoints'
+
+const API_BASE_URL = LEADS_API_BASE_URL.replace(/\/$/, '')
+const WHATSAPP_BASE_URL = WHATSAPP_API_BASE_URL.replace(/\/$/, '')
 
 async function request(path, options = {}) {
   const headers = {
@@ -49,7 +48,7 @@ async function whatsappRequest(path, options = {}) {
     headers['Content-Type'] = 'application/json'
   }
 
-  const response = await fetch(`${WHATSAPP_API_BASE_URL}${path}`, {
+  const response = await fetch(`${WHATSAPP_BASE_URL}${path}`, {
     ...options,
     headers,
   })
@@ -90,7 +89,7 @@ export function getApiBaseUrl() {
 }
 
 export function getWhatsAppApiBaseUrl() {
-  return WHATSAPP_API_BASE_URL
+  return WHATSAPP_BASE_URL
 }
 
 export async function getHealth() {

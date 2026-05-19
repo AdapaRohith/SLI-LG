@@ -9,14 +9,20 @@ SpaceLink Infra is now a frontend-only React + Vite application that reads lead 
 
 ## Connected API
 
-The frontend is wired to these GET-only endpoints:
+The frontend hardcodes its deployed API hosts in `client/src/config/endpoints.js`:
+
+- Lead API: `https://slilg-api.avlokai.com`
+- WhatsApp REST API: `https://wa-slilg.avlokai.com`
+- WhatsApp WebSocket API: `wss://wa-slilg.avlokai.com`
+
+The lead dashboard uses these endpoints:
 
 - `GET /` health check
 - `GET /leads` list all leads
 - `GET /leads/:id` lead plus chat history
 - `GET /search?q=` search leads
 
-The admin dashboard also reads WhatsApp template job status from `http://wa-slilg.avlokai.com`:
+The admin dashboard also reads WhatsApp template job status from `https://wa-slilg.avlokai.com`:
 
 - `GET /api/jobs?limit=N` recent template jobs
 - `GET /api/jobs/:id` selected template job summary and sends
@@ -47,14 +53,13 @@ The admin dashboard also reads WhatsApp template job status from `http://wa-slil
 
 ## Run locally
 
-1. Copy `client/.env.example` to `client/.env` if you want to override defaults.
-2. From the project root, install dependencies:
+1. From the project root, install dependencies:
 
 ```bash
 npm.cmd install
 ```
 
-3. Start the frontend:
+2. Start the frontend:
 
 ```bash
 npm.cmd run dev
@@ -64,10 +69,11 @@ The app will be available at `http://localhost:5173` and will call `https://slil
 
 If your PowerShell environment allows `npm` directly, `npm install` and `npm run dev` work as well.
 
-## Environment variables
+## Deployment
 
-- `VITE_API_BASE_URL` defaults to `https://slilg-api.avlokai.com`
-- `VITE_WHATSAPP_API_BASE_URL` defaults to `http://wa-slilg.avlokai.com`
-- `VITE_WHATSAPP_ADMIN_TOKEN` sends the bearer token required by the WhatsApp job endpoints
+Run `npm.cmd run build` from the project root. The production bundle is emitted to `client/dist` and calls the hardcoded deployed APIs directly.
+
+Optional public contact variables can still be set for landing-page CTAs:
+
 - `VITE_PUBLIC_WHATSAPP_NUMBER` controls the WhatsApp CTA on the landing page
 - `VITE_PUBLIC_CALL_NUMBER` controls the call CTA on the landing page

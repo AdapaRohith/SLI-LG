@@ -32,7 +32,7 @@ No test suite is configured.
 
 **Authentication** (`src/lib/auth.js`): Client-side only. Stores `"true"` in `localStorage` under `spacelink-admin-auth`. Password is hardcoded in that file. There is no server-side session.
 
-**API layer** (`src/lib/api.js`): Lead backend calls go through `request()`. Base URL defaults to `https://slilg-api.avlokai.com` and is overridable via `VITE_API_BASE_URL`. Key endpoints: `GET /leads`, `GET /search?q=`, `GET /leads/:id`, `GET /insights/:id`, `POST /import-leads`. WhatsApp template job calls go through `whatsappRequest()`, default to `http://wa-slilg.avlokai.com`, and use `VITE_WHATSAPP_ADMIN_TOKEN` as a bearer token for `GET /api/jobs?limit=N` and `GET /api/jobs/:id`.
+**API layer** (`src/lib/api.js`, `src/config/endpoints.js`): Lead backend calls go through `request()` and use the hardcoded deployed host `https://slilg-api.avlokai.com`. Key endpoints: `GET /leads`, `GET /search?q=`, `GET /leads/:id`, `GET /insights/:id`, `POST /import-leads`. WhatsApp REST calls use `https://wa-slilg.avlokai.com`; WhatsApp WebSocket calls use `wss://wa-slilg.avlokai.com`. The WhatsApp admin bearer token is also hardcoded in `src/config/endpoints.js`.
 
 **AdminPage** (`src/pages/AdminPage.jsx`): A large single-file CRM. Internal sub-components (`AdminHero`, `LeadSidebar`, `LeadWorkspace`, `ExportControls`, etc.) are all defined in that file. Lead temperature is derived from score: ≥75 = hot/Priority, ≥40 = warm/Active, <40 = cold/Others. Export writes XLSX using the `xlsx` library — "Download XLSX" skips API calls for speed, "Export + Chats" fetches per-lead conversation history.
 
@@ -40,12 +40,9 @@ No test suite is configured.
 
 ## Environment Variables
 
-Create `client/.env.local` for local overrides:
+API endpoints are hardcoded in `client/src/config/endpoints.js` for deployment. Optional contact numbers can still be set in `client/.env.local`:
 
 ```
-VITE_API_BASE_URL=http://localhost:8000      # override API base
-VITE_WHATSAPP_API_BASE_URL=http://wa-slilg.avlokai.com
-VITE_WHATSAPP_ADMIN_TOKEN=...                # bearer token for WhatsApp job endpoints
 VITE_PUBLIC_CALL_NUMBER=+91XXXXXXXXXX        # enables "Call" CTAs
 VITE_PUBLIC_WHATSAPP_NUMBER=91XXXXXXXXXX     # enables WhatsApp CTA
 ```
